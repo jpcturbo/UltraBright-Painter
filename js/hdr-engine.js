@@ -203,7 +203,7 @@ export class HDREngine {
       }
     `;
 
-    // 3. HDR Sun Fragment Shader: Glowing Orb with Asymmetric Corona Flares
+    // 3. HDR Sun Bloom Fragment Shader (Volumetric Solar Bloom based on HDR reference)
     const fsSunSource = `#version 300 es
       precision highp float;
       in vec2 v_uv;
@@ -219,59 +219,47 @@ export class HDREngine {
         vec2 pixelCoord = v_uv * u_resolution;
         vec2 diff = pixelCoord - u_center;
         float dist = length(diff);
-        if (dist > u_radius * 2.8) {
+        if (dist > u_radius * 3.4) {
           discard;
         }
 
         float normDist = dist / u_radius;
-        float angle = atan(diff.y, diff.x);
 
-        // Continuous Volumetric Bloom / Inverse Falloff for radiant orb
-        float orbGlow = pow(max(0.0, 1.0 - normDist * 0.38), 2.8);
-
-        // Blinding Incandescent Core (pure over-bright white > 4.0x)
-        float coreRadius = 0.40;
+        // 1. Blinding Incandescent Core (pure over-bright white > 5.0x peak HDR)
+        float coreRadius = 0.48;
         float core = 1.0 - smoothstep(0.0, coreRadius, normDist);
-        float coreDisc = 1.0 - smoothstep(coreRadius * 0.8, 1.0, normDist);
+        float coreEdge = 1.0 - smoothstep(coreRadius * 0.7, 0.85, normDist);
 
-        // Organic Asymmetric Solar Flares & Corona Rays
-        // Combine prime/irregular frequencies with distinct directional spikes
-        float r1 = sin(angle * 3.0 + 0.6) * 0.5 + 0.5;
-        float r2 = sin(angle * 7.0 - 1.2) * 0.5 + 0.5;
-        float r3 = sin(angle * 11.0 + 2.1) * 0.5 + 0.5;
-        float r4 = cos(angle * 5.0 - 0.4) * 0.5 + 0.5;
-        float wisp = (r1 * 0.35 + r2 * 0.28 + r3 * 0.22 + r4 * 0.15);
+        // 2. Intense Golden-Yellow Inner Solar Bloom
+        float innerBloom = 1.0 - smoothstep(0.35, 1.45, normDist);
 
-        // Prominent Asymmetric Flare Spikes (different intensities and angles)
-        float spike1 = pow(max(0.0, cos(angle - 0.65)), 12.0) * 1.4; // NE spike
-        float spike2 = pow(max(0.0, cos(angle + 2.10)), 14.0) * 1.1; // SW spike
-        float spike3 = pow(max(0.0, cos(angle - 2.50)), 18.0) * 0.9; // NW spike
-        float spike4 = pow(max(0.0, cos(angle + 0.85)), 16.0) * 0.8; // SE spike
+        // 3. Broad Fiery Amber / Orange Mid-Atmospheric Bloom
+        float midBloom = 1.0 - smoothstep(0.8, 2.3, normDist);
 
-        float totalSpikes = (spike1 + spike2 + spike3 + spike4);
-        float rayFalloff = smoothstep(2.6, 0.45, normDist);
-        float rays = (wisp * 0.65 + totalSpikes * 0.75) * rayFalloff;
+        // 4. Soft Volumetric Atmospheric Dispersion
+        float outerGlow = pow(max(0.0, 1.0 - normDist / 3.3), 2.2);
 
-        // Radiant Colors
-        vec3 incandescentWhite = vec3(1.0, 0.99, 0.94) * (u_intensity * 2.2);
-        vec3 solarGold = u_color * (u_intensity * 1.4);
-        vec3 fieryAmber = mix(solarGold, vec3(1.0, 0.28, 0.04) * u_intensity, 0.65);
-        vec3 outerHalo = mix(fieryAmber, vec3(1.0, 0.45, 0.1) * u_intensity, 0.5);
+        // Radiant HDR Spectral Palette matching the reference capture:
+        vec3 coreWhite = vec3(1.0, 0.99, 0.95) * (u_intensity * 2.6);
+        vec3 solarYellow = mix(u_color, vec3(1.0, 0.92, 0.05), 0.75) * (u_intensity * 1.8);
+        vec3 fieryAmber = mix(u_color, vec3(1.0, 0.42, 0.02) * u_intensity, 0.8);
+        vec3 atmosphericSky = mix(fieryAmber, vec3(1.0, 0.25, 0.0) * u_intensity, 0.5);
 
-        // Color blending across layers
-        vec3 color = mix(outerHalo, fieryAmber, normDist < 1.6 ? 0.6 : 0.2);
-        color = mix(color, solarGold, coreDisc);
-        color = mix(color, incandescentWhite, core * 0.92);
+        // Layered optical composite
+        vec3 color = outerGlow * atmosphericSky * 0.55;
+        color = mix(color, fieryAmber, midBloom * 0.85);
+        color = mix(color, solarYellow, innerBloom * 0.95);
+        color = mix(color, coreWhite, coreEdge);
+        color = mix(color, coreWhite * 1.15, core);
 
-        // Corona addition
-        color += fieryAmber * (rays * 0.8);
+        // Alpha falloff
+        float alpha = clamp(core * 1.0 + innerBloom * 0.92 + midBloom * 0.7 + outerGlow * 0.45, 0.0, 1.0) * u_opacity;
 
-        float alpha = clamp(coreDisc * 0.95 + orbGlow * 0.65 + rays * 0.45, 0.0, 1.0) * u_opacity;
         fragColor = vec4(color, alpha);
       }
     `;
 
-    // 4. HDR Moon Fragment Shader: Accurate Astronomical Phase & Glowing Lunar Orb
+    // 4. HDR Moon Fragment Shader: Clean Ethereal Lunar Disc with Full Moon Fix
     const fsMoonSource = `#version 300 es
       precision highp float;
       in vec2 v_uv;
@@ -281,51 +269,43 @@ export class HDREngine {
       uniform vec3 u_color;
       uniform float u_intensity;
       uniform float u_opacity;
-      uniform float u_moonPhase; // 0.0 (razor crescent) -> 0.5 (half moon) -> 1.0 (full moon)
+      uniform float u_moonPhase; // 0.0 (thin crescent) -> 0.5 (half moon) -> 1.0 (full moon)
       out vec4 fragColor;
 
       void main() {
         vec2 pixelCoord = v_uv * u_resolution;
-        vec2 p = (pixelCoord - u_center) / u_radius;
-        float dist = length(p);
-        if (dist > 2.0) {
+        vec2 diff = pixelCoord - u_center;
+        float dist = length(diff);
+        if (dist > u_radius * 2.0) {
           discard;
         }
 
-        // Base disc mask
-        float disc = 1.0 - smoothstep(0.97, 1.0, dist);
+        float normDist = dist / u_radius;
 
-        // Astronomical lunar terminator formula
-        // At any height p.y, the disc width is W = sqrt(max(0.0, 1.0 - p.y * p.y))
-        float W = sqrt(max(0.0, 1.0 - p.y * p.y));
-        // k ranges from -1.0 (phase 0) to 0.0 (phase 0.5) to +1.0 (phase 1.0)
-        float k = 2.0 * clamp(u_moonPhase, 0.0, 1.0) - 1.0;
-        // Terminator position xT = -k * W
-        float xT = -k * W;
-        // Illumination from the right side (p.x > xT)
-        float lit = smoothstep(-0.03, 0.03, p.x - xT);
-        float moonBody = disc * lit;
+        // Moon disc base
+        float disc = 1.0 - smoothstep(0.96, 1.0, normDist);
 
-        // Atmospheric/celestial outer glow
-        float glow = pow(max(0.0, 1.0 - dist / 1.9), 3.0) * (0.35 + 0.45 * u_moonPhase);
+        // Crescent moon shadow cut-out:
+        // At phase 1.0 (full moon), shadowOffset moves completely off the disc!
+        // At phase 0.0 (thin crescent), shadowOffset is close, carving away most of the disc.
+        float offsetDistance = u_radius * (0.35 + clamp(u_moonPhase, 0.0, 1.0) * 1.85);
+        vec2 shadowOffset = vec2(offsetDistance, u_radius * 0.05);
+        float shadowDist = length(pixelCoord - (u_center + shadowOffset)) / u_radius;
+        float shadow = 1.0 - smoothstep(0.95, 1.02, shadowDist);
+        float crescent = clamp(disc - shadow, 0.0, 1.0);
 
-        // Procedural lunar surface texture / subtle crater mottling
-        float crater1 = sin(p.x * 9.0 + sin(p.y * 7.0)) * 0.06;
-        float crater2 = cos(p.x * 16.0 - p.y * 14.0) * 0.04;
-        float textureNoise = 1.0 - (crater1 + crater2);
+        // Soft ethereal ambient lunar glow
+        float halo = 1.0 - smoothstep(0.9, 1.8, normDist);
 
         // Radiant Lunar Colors
-        vec3 moonCore = vec3(0.95, 0.98, 1.0) * (u_intensity * 1.6);
-        vec3 moonColor = mix(u_color, vec3(0.75, 0.88, 1.0), 0.5) * u_intensity;
-        vec3 col = mix(moonColor, moonCore, 0.5) * textureNoise;
+        vec3 moonCore = vec3(0.92, 0.97, 1.0) * (u_intensity * 1.5);
+        vec3 moonGlow = mix(u_color, vec3(0.6, 0.8, 1.0), 0.5) * u_intensity;
 
-        // Outer halo
-        vec3 haloColor = mix(moonColor, vec3(0.5, 0.75, 1.0) * u_intensity, 0.6);
+        vec3 col = mix(moonGlow, moonCore, crescent);
+        float alpha = (crescent * 0.95 + halo * 0.35) * u_opacity;
+        alpha = clamp(alpha, 0.0, 1.0);
 
-        vec3 finalRGB = col * moonBody + haloColor * glow;
-        float finalAlpha = clamp(moonBody * 0.98 + glow * 0.6, 0.0, 1.0) * u_opacity;
-
-        fragColor = vec4(finalRGB, finalAlpha);
+        fragColor = vec4(col, alpha);
       }
     `;
 
