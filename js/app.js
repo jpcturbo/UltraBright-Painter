@@ -1,11 +1,13 @@
 /**
  * Main Application Controller for HDR Web Paint
+ * Compatible with both classic script loading (file:///) and static web hosting.
  */
 
-import { HDREngine } from './hdr-engine.js';
-import { PRESET_PALETTES, hsvToRgb, rgbToHsv, getEstimatedNits } from './color-palette.js';
-
+(function() {
 document.addEventListener('DOMContentLoaded', () => {
+  const { HDREngine, HDRPalette } = window;
+  const { PRESET_PALETTES, hsvToRgb, rgbToHsv, getEstimatedNits } = HDRPalette;
+
   const canvas = document.getElementById('paintCanvas');
   const brushCursor = document.getElementById('brushCursor');
   const hdrEngine = new HDREngine(canvas);
@@ -503,3 +505,4 @@ document.addEventListener('DOMContentLoaded', () => {
   // Start the application
   initApp();
 });
+})();

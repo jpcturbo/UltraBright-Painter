@@ -55,25 +55,19 @@ Designed specifically for HDR-capable displays and modern high-brightness mobile
 
 ## 🚀 Getting Started
 
-Because **HDR Web Paint** is built with modern ES modules and zero build dependencies, you can run it with any static web server:
+Because **HDR Web Paint** is built with zero build dependencies and standard static scripts, you can run it in whichever way you prefer:
 
-### Option 1: Python HTTP Server (Built-in)
-```bash
-# In the project directory:
-python -m http.server 8080
-```
-Then navigate to: `http://localhost:8080`
+### Option 1: Direct File Launch (No server needed)
+- Simply double-click **`index.html`** in Windows Explorer. It opens directly via `file:///` in your browser with zero CORS restrictions!
 
-### Option 2: Node.js `npx serve`
-```bash
-npx serve .
-```
+### Option 2: Windows Launcher (`start.bat` for local Wi-Fi & phone testing)
+- Double-click **`start.bat`**. It starts a lightweight local server and displays the local Wi-Fi URL (e.g. `http://192.168.1.X:8080`) so other phones and devices on your Wi-Fi can test it.
 
-### Option 3: GitHub Pages
+### Option 3: GitHub Pages (Host for the world)
 1. Push this repository to GitHub.
 2. In GitHub, go to **Settings** > **Pages**.
 3. Under **Build and deployment**, select **Source: Deploy from a branch** and pick `main` / `/ (root)`.
-4. Your HDR painting app is instantly live on the web!
+4. Your HDR painting app is instantly live on the web at `https://<username>.github.io/HDR-Web-Paint/`!
 
 ---
 

@@ -2,9 +2,11 @@
  * HDR Paint Engine
  * Powered by WebGL 2 with Float16 Backing Storage and Display-P3 Extended Range.
  * Falls back gracefully to standard Canvas2D if WebGL2 is unavailable.
+ * Compatible with both classic script loading (file:///) and static web hosting.
  */
 
-export class HDREngine {
+(function(global) {
+class HDREngine {
   constructor(canvas) {
     this.canvas = canvas;
     this.gl = null;
@@ -722,3 +724,6 @@ export class HDREngine {
     link.click();
   }
 }
+
+global.HDREngine = HDREngine;
+})(typeof window !== 'undefined' ? window : globalThis);
