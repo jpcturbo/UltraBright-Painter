@@ -22,7 +22,7 @@ export class HDREngine {
     this.brushOpacity = 1.0;
     this.brushColor = [1.0, 0.4, 0.1]; // Display P3 RGB
     this.hdrIntensity = 2.5; // 1.0 = SDR 100 nits, up to 5.0x = Peak HDR highlights
-    this.chromaRetention = 0.85; // 0.0 = linear wash, 1.0 = maximum vivid chromaticity preservation
+    this.chromaRetention = 1.0; // Maximum vivid chromaticity preservation (always active)
     this.activeTool = 'brush'; // 'brush', 'sun', 'moon', 'eraser'
     this.moonPhase = 0.5; // 0.0 = razor crescent, 0.5 = half moon, 1.0 = full moon
     this.backgroundColor = [0.03, 0.03, 0.04, 1.0]; // Deep OLED/IPS Black
