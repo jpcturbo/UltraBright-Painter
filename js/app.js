@@ -76,10 +76,16 @@ document.addEventListener('DOMContentLoaded', () => {
     selectPresetColor(PRESET_PALETTES[1]); // Default to Plasma Sun Gold
     updateBrushCursorSize();
 
-    // Responsive Canvas Resize
-    window.addEventListener('resize', () => {
-      hdrEngine.resizeCanvas();
-    });
+    // Responsive Canvas Resize via ResizeObserver and window events
+    const canvasViewport = document.getElementById('canvasViewport');
+    if (window.ResizeObserver && canvasViewport) {
+      const resizeObserver = new ResizeObserver(() => {
+        hdrEngine.resizeCanvas();
+      });
+      resizeObserver.observe(canvasViewport);
+    } else {
+      window.addEventListener('resize', () => hdrEngine.resizeCanvas());
+    }
     window.addEventListener('orientationchange', () => {
       setTimeout(() => hdrEngine.resizeCanvas(), 100);
     });
@@ -222,11 +228,13 @@ document.addEventListener('DOMContentLoaded', () => {
     moonPhaseSlider.addEventListener('input', (e) => {
       const val = parseInt(e.target.value, 10);
       hdrEngine.moonPhase = val / 100;
-      let label = 'Crescent';
-      if (val < 15) label = 'Thin Crescent';
-      else if (val > 80) label = 'Full Moon';
-      else if (val > 45) label = 'Gibbous';
-      moonPhaseValText.textContent = label;
+      let label = 'Half Moon';
+      if (val <= 12) label = 'Razor Crescent';
+      else if (val <= 32) label = 'Crescent';
+      else if (val <= 68) label = 'Half Moon';
+      else if (val <= 88) label = 'Gibbous';
+      else label = 'Full Moon';
+      moonPhaseValText.textContent = `${label} (${val}%)`;
     });
 
     // HDR Boost Slider
@@ -377,9 +385,10 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('pointermove', (e) => {
       const pos = getPos(e);
 
-      // Move visual cursor ring
-      brushCursor.style.left = `${e.clientX}px`;
-      brushCursor.style.top = `${e.clientY}px`;
+      // Move visual cursor ring relative to canvas viewport container
+      const viewportRect = canvas.parentElement.getBoundingClientRect();
+      brushCursor.style.left = `${e.clientX - viewportRect.left}px`;
+      brushCursor.style.top = `${e.clientY - viewportRect.top}px`;
       brushCursor.style.display = 'block';
 
       if (hdrEngine.isDrawing) {
@@ -431,6 +440,8 @@ document.addEventListener('DOMContentLoaded', () => {
           hdrEngine.setBackgroundColor(0.03, 0.07, 0.15);
         } else if (mode === 'nebula') {
           hdrEngine.setBackgroundColor(0.09, 0.04, 0.14);
+        } else if (mode === 'white') {
+          hdrEngine.setBackgroundColor(1.0, 1.0, 1.0);
         }
       });
     });

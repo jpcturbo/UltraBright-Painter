@@ -65,173 +65,172 @@
       </div>
     </header>
 
-    <!-- Main Canvas Area -->
-    <main class="canvas-viewport" id="canvasViewport">
-      <canvas id="paintCanvas"></canvas>
-      <div id="brushCursor" class="brush-cursor"></div>
-    </main>
+    <!-- Main Workspace: Drawing Area on Left, Control Panel Anchored on Right -->
+    <div class="workspace-layout">
+      <!-- Canvas Viewport -->
+      <main class="canvas-viewport" id="canvasViewport">
+        <canvas id="paintCanvas"></canvas>
+        <div id="brushCursor" class="brush-cursor"></div>
+      </main>
 
-    <!-- Floating / Mobile Bottom Sheet Control Panel -->
-    <aside class="control-panel" id="controlPanel">
-      <!-- Drawer Drag Handle for Mobile -->
-      <div class="mobile-drawer-handle" id="drawerHandle">
-        <span class="handle-bar"></span>
-      </div>
+      <!-- Anchored Control Panel (Right on Desktop, Bottom on Mobile) -->
+      <aside class="control-panel" id="controlPanel">
+        <!-- Tool Selector Tabs -->
+        <div class="tools-bar">
+          <button class="tool-btn active" data-tool="brush" id="toolBrush" title="Circular Brush (B)">
+            <div class="tool-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18.375 2.625a3.875 3.875 0 0 0-5.48 0L3.5 12v4.5h4.5l9.395-9.395a3.875 3.875 0 0 0 0-5.48z"></path>
+                <path d="M14 6l4 4"></path>
+              </svg>
+            </div>
+            <span class="tool-label">Brush</span>
+          </button>
 
-      <!-- Tool Selector Tabs -->
-      <div class="tools-bar">
-        <button class="tool-btn active" data-tool="brush" id="toolBrush" title="Circular Brush (B)">
-          <div class="tool-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18.375 2.625a3.875 3.875 0 0 0-5.48 0L3.5 12v4.5h4.5l9.395-9.395a3.875 3.875 0 0 0 0-5.48z"></path>
-              <path d="M14 6l4 4"></path>
+          <button class="tool-btn" data-tool="sun" id="toolSun" title="Blinding HDR Sun (S)">
+            <div class="tool-icon sun-icon-glow">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            </div>
+            <span class="tool-label">HDR Sun</span>
+          </button>
+
+          <button class="tool-btn" data-tool="moon" id="toolMoon" title="Radiant HDR Moon (M)">
+            <div class="tool-icon moon-icon-glow">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </div>
+            <span class="tool-label">HDR Moon</span>
+          </button>
+
+          <button class="tool-btn" data-tool="eraser" id="toolEraser" title="Eraser (E)">
+            <div class="tool-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L18 15"></path>
+                <line x1="17" y1="17" x2="7" y2="17"></line>
+              </svg>
+            </div>
+            <span class="tool-label">Eraser</span>
+          </button>
+        </div>
+
+        <!-- Tool Parameters Adjuster -->
+        <div class="parameters-section">
+          <!-- Size Control -->
+          <div class="control-row">
+            <div class="label-with-value">
+              <label for="sizeSlider">Tool Size</label>
+              <span id="sizeValText" class="value-badge">30 px</span>
+            </div>
+            <input type="range" id="sizeSlider" min="4" max="220" value="30" class="styled-slider">
+          </div>
+
+          <!-- Softness / Feathering Control (for Brush) -->
+          <div class="control-row" id="softnessRow">
+            <div class="label-with-value">
+              <label for="softnessSlider">Edge Softness</label>
+              <span id="softnessValText" class="value-badge">50%</span>
+            </div>
+            <input type="range" id="softnessSlider" min="0" max="100" value="50" class="styled-slider">
+          </div>
+
+          <!-- Moon Phase Control (for Moon tool) -->
+          <div class="control-row hidden" id="moonPhaseRow">
+            <div class="label-with-value">
+              <label for="moonPhaseSlider">Moon Phase</label>
+              <span id="moonPhaseValText" class="value-badge">Half Moon</span>
+            </div>
+            <input type="range" id="moonPhaseSlider" min="0" max="100" value="50" class="styled-slider">
+          </div>
+
+          <!-- HDR Luminance Boost Slider -->
+          <div class="control-row hdr-boost-container">
+            <div class="label-with-value">
+              <label for="hdrBoostSlider" class="hdr-label">
+                <span>HDR Luminance Boost</span>
+                <span class="pulse-chip">600 Nits Max</span>
+              </label>
+              <span id="hdrBoostValText" class="value-badge highlight">2.5x (~300 nits)</span>
+            </div>
+            <input type="range" id="hdrBoostSlider" min="10" max="50" value="25" class="styled-slider hdr-slider">
+            <div class="hdr-quick-tiers">
+              <button class="tier-chip" data-boost="1.0">1.0x SDR</button>
+              <button class="tier-chip" data-boost="2.2">2.2x Glow</button>
+              <button class="tier-chip active" data-boost="3.5">3.5x Solar</button>
+              <button class="tier-chip" data-boost="5.0">5.0x Peak</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Color Palette & Custom Selector -->
+        <div class="color-section">
+          <div class="color-section-header">
+            <h3>Display-P3 HDR Palette</h3>
+            <!-- Active Color Preview Chip -->
+            <div class="active-color-preview-wrapper" title="Current Active Color">
+              <div id="activeColorSwatch" class="active-swatch"></div>
+              <span id="activeColorLabel" class="active-color-name">Solar Gold</span>
+            </div>
+          </div>
+
+          <!-- Presets Grid -->
+          <div class="swatches-grid" id="swatchesGrid">
+            <!-- Populated dynamically via color-palette.js -->
+          </div>
+
+          <!-- Freeform Color Picker Collapsible Toggle -->
+          <button id="toggleCustomColorBtn" class="expand-picker-btn">
+            <span>Custom Freeform Color Picker</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
-          </div>
-          <span class="tool-label">Brush</span>
-        </button>
+          </button>
 
-        <button class="tool-btn" data-tool="sun" id="toolSun" title="Blinding HDR Sun (S)">
-          <div class="tool-icon sun-icon-glow">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="5"></circle>
-              <line x1="12" y1="1" x2="12" y2="3"></line>
-              <line x1="12" y1="21" x2="12" y2="23"></line>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-              <line x1="1" y1="12" x2="3" y2="12"></line>
-              <line x1="21" y1="12" x2="23" y2="12"></line>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            </svg>
-          </div>
-          <span class="tool-label">HDR Sun</span>
-        </button>
+          <!-- Custom Color Picker Box -->
+          <div class="custom-picker-box hidden" id="customPickerBox">
+            <!-- 2D Saturation / Value Gradient Box -->
+            <div class="sv-picker-area" id="svPickerArea">
+              <div class="sv-white-gradient"></div>
+              <div class="sv-black-gradient"></div>
+              <div class="sv-picker-handle" id="svHandle"></div>
+            </div>
 
-        <button class="tool-btn" data-tool="moon" id="toolMoon" title="Radiant HDR Moon (M)">
-          <div class="tool-icon moon-icon-glow">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          </div>
-          <span class="tool-label">HDR Moon</span>
-        </button>
+            <!-- Hue Slider -->
+            <div class="hue-slider-container">
+              <label class="slider-mini-label">Hue</label>
+              <input type="range" id="hueSlider" min="0" max="360" value="38" class="hue-range">
+            </div>
 
-        <button class="tool-btn" data-tool="eraser" id="toolEraser" title="Eraser (E)">
-          <div class="tool-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L18 15"></path>
-              <line x1="17" y1="17" x2="7" y2="17"></line>
-            </svg>
+            <!-- Color Values Info -->
+            <div class="color-readout">
+              <span id="cssColorCode">color(display-p3 1.00 0.72 0.10)</span>
+            </div>
           </div>
-          <span class="tool-label">Eraser</span>
-        </button>
-      </div>
 
-      <!-- Tool Parameters Adjuster -->
-      <div class="parameters-section">
-        <!-- Size Control -->
-        <div class="control-row">
-          <div class="label-with-value">
-            <label for="sizeSlider">Tool Size</label>
-            <span id="sizeValText" class="value-badge">30 px</span>
-          </div>
-          <input type="range" id="sizeSlider" min="4" max="220" value="30" class="styled-slider">
-        </div>
-
-        <!-- Softness / Feathering Control (for Brush) -->
-        <div class="control-row" id="softnessRow">
-          <div class="label-with-value">
-            <label for="softnessSlider">Edge Softness</label>
-            <span id="softnessValText" class="value-badge">50%</span>
-          </div>
-          <input type="range" id="softnessSlider" min="0" max="100" value="50" class="styled-slider">
-        </div>
-
-        <!-- Moon Phase Control (for Moon tool) -->
-        <div class="control-row hidden" id="moonPhaseRow">
-          <div class="label-with-value">
-            <label for="moonPhaseSlider">Crescent Phase</label>
-            <span id="moonPhaseValText" class="value-badge">Crescent</span>
-          </div>
-          <input type="range" id="moonPhaseSlider" min="0" max="100" value="25" class="styled-slider">
-        </div>
-
-        <!-- HDR Luminance Boost Slider -->
-        <div class="control-row hdr-boost-container">
-          <div class="label-with-value">
-            <label for="hdrBoostSlider" class="hdr-label">
-              <span>HDR Luminance Boost</span>
-              <span class="pulse-chip">600 Nits Max</span>
-            </label>
-            <span id="hdrBoostValText" class="value-badge highlight">2.5x (~300 nits)</span>
-          </div>
-          <input type="range" id="hdrBoostSlider" min="10" max="50" value="25" class="styled-slider hdr-slider">
-          <div class="hdr-quick-tiers">
-            <button class="tier-chip" data-boost="1.0">1.0x SDR</button>
-            <button class="tier-chip" data-boost="2.2">2.2x Glow</button>
-            <button class="tier-chip active" data-boost="3.5">3.5x Solar</button>
-            <button class="tier-chip" data-boost="5.0">5.0x Peak</button>
+          <!-- Canvas Background Selector -->
+          <div class="bg-selector-row">
+            <label>Canvas Space:</label>
+            <div class="bg-options">
+              <button class="bg-opt-btn active" data-bg="space" title="Deep OLED Black"></button>
+              <button class="bg-opt-btn" data-bg="charcoal" title="Charcoal Grey"></button>
+              <button class="bg-opt-btn" data-bg="navy" title="Deep Space Navy"></button>
+              <button class="bg-opt-btn" data-bg="nebula" title="Dark Nebula Purple"></button>
+              <button class="bg-opt-btn" data-bg="white" title="SDR 1.0 Pure White"></button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- Color Palette & Custom Selector -->
-      <div class="color-section">
-        <div class="color-section-header">
-          <h3>Display-P3 HDR Palette</h3>
-          <!-- Active Color Preview Chip -->
-          <div class="active-color-preview-wrapper" title="Current Active Color">
-            <div id="activeColorSwatch" class="active-swatch"></div>
-            <span id="activeColorLabel" class="active-color-name">Solar Gold</span>
-          </div>
-        </div>
-
-        <!-- Presets Grid -->
-        <div class="swatches-grid" id="swatchesGrid">
-          <!-- Populated dynamically via color-palette.js -->
-        </div>
-
-        <!-- Freeform Color Picker Collapsible Toggle -->
-        <button id="toggleCustomColorBtn" class="expand-picker-btn">
-          <span>Custom Freeform Color Picker</span>
-          <svg class="chevron-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-
-        <!-- Custom Color Picker Box -->
-        <div class="custom-picker-box hidden" id="customPickerBox">
-          <!-- 2D Saturation / Value Gradient Box -->
-          <div class="sv-picker-area" id="svPickerArea">
-            <div class="sv-white-gradient"></div>
-            <div class="sv-black-gradient"></div>
-            <div class="sv-picker-handle" id="svHandle"></div>
-          </div>
-
-          <!-- Hue Slider -->
-          <div class="hue-slider-container">
-            <label class="slider-mini-label">Hue</label>
-            <input type="range" id="hueSlider" min="0" max="360" value="38" class="hue-range">
-          </div>
-
-          <!-- Color Values Info -->
-          <div class="color-readout">
-            <span id="cssColorCode">color(display-p3 1.00 0.72 0.10)</span>
-          </div>
-        </div>
-
-        <!-- Canvas Background Selector -->
-        <div class="bg-selector-row">
-          <label>Canvas Space:</label>
-          <div class="bg-options">
-            <button class="bg-opt-btn active" data-bg="space" title="Deep OLED Black"></button>
-            <button class="bg-opt-btn" data-bg="charcoal" title="Charcoal Grey"></button>
-            <button class="bg-opt-btn" data-bg="navy" title="Deep Space Navy"></button>
-            <button class="bg-opt-btn" data-bg="nebula" title="Dark Nebula Purple"></button>
-          </div>
-        </div>
-      </div>
-    </aside>
+      </aside>
+    </div>
 
     <!-- HDR Diagnostics Modal -->
     <div class="modal-overlay hidden" id="hdrModal">
