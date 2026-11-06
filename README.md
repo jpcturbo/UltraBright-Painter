@@ -3,7 +3,7 @@
 
 A fun, responsive web painting application built to explore **High Dynamic Range (HDR)** and **Display-P3 Wide Color Gamut** directly inside modern browsers.
 
-Designed specifically for HDR displays—such as the **Dell UltraSharp U3225QE** (VESA DisplayHDR 600, 98% Display-P3, IPS Black 2000:1 contrast)—and modern high-brightness mobile OLED/HDR screens.
+Designed specifically for HDR-capable displays and modern high-brightness mobile OLED/HDR screens (iPhone Super Retina XDR, Samsung Galaxy AMOLED, Google Pixel, and wide-gamut Display-P3 monitors).
 
 ---
 
@@ -12,7 +12,7 @@ Designed specifically for HDR displays—such as the **Dell UltraSharp U3225QE**
 - **True HDR Rendering Pipeline**:
   - Leverages WebGL 2 with `gl.drawingBufferStorage(gl.RGBA16F)` half-float backing store and `gl.drawingBufferColorSpace = 'display-p3'`.
   - Opts into the browser compositor's extended dynamic range headroom via `canvas.configureHighDynamicRange({ mode: 'extended' })`.
-  - Brush strokes and stamps emit unclamped luminance values exceeding standard SDR white (`1.0`), tapping directly into peak monitor brightness (up to 600+ nits).
+  - Brush strokes and stamps emit unclamped luminance values exceeding standard SDR white (`1.0`), tapping directly into peak monitor and phone screen brightness (up to 600+ nits).
 
 - **Tools**:
   1. **Circular Paint Brush**: Smooth continuous stroke interpolation, radius sizing (4px - 220px), adjustable edge feathering/softness (0% to 100%), and opacity.
@@ -23,7 +23,7 @@ Designed specifically for HDR displays—such as the **Dell UltraSharp U3225QE**
 - **Color Palette & Free-form Selector**:
   - **Curated HDR & P3 Palette**: Includes super-luminous colors like *Solar Blast (600 nits)*, *Plasma Sun Gold*, *Cyber Neon Cyan*, *Supernova Magenta*, and *Bioluminescent Lime*.
   - **Free-Form P3 Color Picker**: Interactive 2D Saturation/Value gradient with full 360° Hue slider.
-  - **HDR Luminance Boost Slider**: Seamlessly scale luminance multiplier from `1.0x` (SDR ~100-120 nits) up to `5.0x` (Dell U3225QE Peak ~600 nits) with real-time estimated nits readouts.
+  - **HDR Luminance Boost Slider**: Seamlessly scale luminance multiplier from `1.0x` (SDR ~100-120 nits) up to `5.0x` (Peak HDR ~600+ nits) with real-time estimated nits readouts.
   - **Quick Tier Chips**: Jump instantly between `1.0x SDR`, `2.2x Glow`, `3.5x Solar`, and `5.0x Peak`.
 
 - **Responsive Viewport Design**:
@@ -76,17 +76,19 @@ npx serve .
 
 ---
 
-## 🖥️ Recommended HDR Setup (Windows 11 & Dell U3225QE)
+## 🖥️ Recommended HDR Setup (Windows & Mobile)
 
 To get the most dazzling HDR experience:
 
-1. **Enable Windows 11 HDR**:
+1. **Windows 11 Setup**:
    - Press <kbd>Win</kbd> + <kbd>Alt</kbd> + <kbd>B</kbd> or go to **Windows Settings > System > Display > HDR** and turn **Use HDR** ON.
-2. **Monitor Settings (Dell U3225QE)**:
-   - On the monitor OSD menu, enable **Smart HDR** (e.g., *Desktop* or *DisplayHDR 600* mode).
-3. **Browser Compatibility**:
-   - Google Chrome or Microsoft Edge (version 122 or newer recommended).
-   - Ensure hardware acceleration is enabled under browser settings: `chrome://settings/system` > *Use graphics acceleration when available*.
+2. **HDR Monitors / TVs**:
+   - On your monitor OSD menu, ensure **HDR** (DisplayHDR, HDR10, or Smart HDR) is enabled.
+3. **Mobile Devices (iPhones, iPads, Android)**:
+   - Modern OLED iPhones (iPhone X and later) and modern Android flagship phones (Samsung Galaxy, Google Pixel) support HDR and Display-P3 wide gamut natively in Safari, Chrome, and Edge.
+4. **Browser Compatibility**:
+   - Google Chrome, Microsoft Edge, or Safari.
+   - Ensure hardware graphics acceleration is enabled under browser settings.
    - Click the green **HDR Active** badge in the top bar to verify the canvas backing format is set to `RGBA16F (Half-Float)` in `display-p3`.
 
 ---

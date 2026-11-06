@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     diagP3Status.textContent = info.displayP3 ? 'Supported (Wide Gamut P3)' : 'sRGB Standard Fallback';
     diagFormatStatus.textContent = info.float16Buffer ? 'RGBA16F Half-Float (Extended Range)' : 'Standard 8-bit Clamped';
-    diagPeakStatus.textContent = info.highDynamicRange ? '~600 nits (Dell U3225QE Peak)' : '~120-150 nits (SDR Target)';
+    diagPeakStatus.textContent = info.highDynamicRange ? '~600+ nits (HDR Display Peak)' : '~120-150 nits (SDR Target)';
   }
 
   // =========================================================================

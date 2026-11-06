@@ -164,6 +164,6 @@ export function rgbToHsv(r, g, b) {
  */
 export function getEstimatedNits(intensity) {
   // 1.0x SDR is calibrated around ~100-120 nits in Windows HDR SDR slider.
-  // 5.0x multiplier reaches Dell U3225QE VESA DisplayHDR 600 peak ceiling (~600 nits).
+  // 5.0x multiplier reaches HDR display peak highlight headroom (~600+ nits).
   return Math.round(intensity * 120);
 }

@@ -21,7 +21,7 @@ export class HDREngine {
     this.brushSoftness = 0.5; // 0 = hard, 1 = super soft
     this.brushOpacity = 1.0;
     this.brushColor = [1.0, 0.4, 0.1]; // Display P3 RGB
-    this.hdrIntensity = 2.5; // 1.0 = SDR 100 nits, up to 5.0x = Dell U3225QE peak highlights
+    this.hdrIntensity = 2.5; // 1.0 = SDR 100 nits, up to 5.0x = Peak HDR highlights
     this.activeTool = 'brush'; // 'brush', 'sun', 'moon', 'eraser'
     this.moonPhase = 0.25; // Crescent moon shape
     this.backgroundColor = [0.03, 0.03, 0.04, 1.0]; // Deep OLED/IPS Black
