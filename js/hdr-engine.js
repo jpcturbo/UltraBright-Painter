@@ -203,7 +203,7 @@ export class HDREngine {
       }
     `;
 
-    // 3. HDR Sun Bloom Fragment Shader (Volumetric Solar Bloom based on HDR reference)
+    // 3. HDR Sun Bloom Fragment Shader (Glow fills 5x the tool diameter)
     const fsSunSource = `#version 300 es
       precision highp float;
       in vec2 v_uv;
@@ -219,25 +219,26 @@ export class HDREngine {
         vec2 pixelCoord = v_uv * u_resolution;
         vec2 diff = pixelCoord - u_center;
         float dist = length(diff);
-        if (dist > u_radius * 3.4) {
+        // Outer limit extends to 5.0x radius = 10.0x radius in diameter = 5x the tool diameter!
+        if (dist > u_radius * 5.0) {
           discard;
         }
 
         float normDist = dist / u_radius;
 
         // 1. Blinding Incandescent Core (pure over-bright white > 5.0x peak HDR)
-        float coreRadius = 0.48;
+        float coreRadius = 0.55;
         float core = 1.0 - smoothstep(0.0, coreRadius, normDist);
-        float coreEdge = 1.0 - smoothstep(coreRadius * 0.7, 0.85, normDist);
+        float coreEdge = 1.0 - smoothstep(coreRadius * 0.7, 1.05, normDist);
 
         // 2. Intense Golden-Yellow Inner Solar Bloom
-        float innerBloom = 1.0 - smoothstep(0.35, 1.45, normDist);
+        float innerBloom = 1.0 - smoothstep(0.4, 2.2, normDist);
 
         // 3. Broad Fiery Amber / Orange Mid-Atmospheric Bloom
-        float midBloom = 1.0 - smoothstep(0.8, 2.3, normDist);
+        float midBloom = 1.0 - smoothstep(1.0, 3.8, normDist);
 
-        // 4. Soft Volumetric Atmospheric Dispersion
-        float outerGlow = pow(max(0.0, 1.0 - normDist / 3.3), 2.2);
+        // 4. Soft Volumetric Atmospheric Dispersion filling 5x tool diameter
+        float outerGlow = pow(max(0.0, 1.0 - normDist / 5.0), 1.8);
 
         // Radiant HDR Spectral Palette matching the reference capture:
         vec3 coreWhite = vec3(1.0, 0.99, 0.95) * (u_intensity * 2.6);
@@ -246,14 +247,14 @@ export class HDREngine {
         vec3 atmosphericSky = mix(fieryAmber, vec3(1.0, 0.25, 0.0) * u_intensity, 0.5);
 
         // Layered optical composite
-        vec3 color = outerGlow * atmosphericSky * 0.55;
+        vec3 color = outerGlow * atmosphericSky * 0.6;
         color = mix(color, fieryAmber, midBloom * 0.85);
         color = mix(color, solarYellow, innerBloom * 0.95);
         color = mix(color, coreWhite, coreEdge);
         color = mix(color, coreWhite * 1.15, core);
 
         // Alpha falloff
-        float alpha = clamp(core * 1.0 + innerBloom * 0.92 + midBloom * 0.7 + outerGlow * 0.45, 0.0, 1.0) * u_opacity;
+        float alpha = clamp(core * 1.0 + innerBloom * 0.92 + midBloom * 0.75 + outerGlow * 0.5, 0.0, 1.0) * u_opacity;
 
         fragColor = vec4(color, alpha);
       }
@@ -640,7 +641,7 @@ export class HDREngine {
     if (!gl) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const radius = this.brushSize * 2.0 * dpr;
+    const radius = this.brushSize * dpr;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
     gl.viewport(0, 0, this.canvasWidth, this.canvasHeight);

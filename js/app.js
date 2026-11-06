@@ -278,7 +278,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateBrushCursorSize() {
     let size = hdrEngine.brushSize * 2;
     if (hdrEngine.activeTool === 'sun') {
-      size = hdrEngine.brushSize * 4.4;
+      // Glow fills 5x the diameter of the tool
+      size = hdrEngine.brushSize * 2 * 5.0;
     } else if (hdrEngine.activeTool === 'moon') {
       size = hdrEngine.brushSize * 3.6;
     }
