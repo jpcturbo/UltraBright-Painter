@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>HDR Web Paint | Display-P3 & Extended Dynamic Range</title>
-  <meta name="description" content="A simple, fun high-dynamic-range painting application utilizing Display-P3 wide gamut and floating-point HDR luminance up to 600+ nits.">
+  <title>HDR Web Paint</title>
+  <meta name="description" content="A simple, fun high-dynamic-range painting application utilizing wide color gamut and floating-point HDR luminance up to 600+ nits.">
   <meta name="theme-color" content="#0a0b0e">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,7 +21,6 @@
         <span class="brand-icon">✨</span>
         <div class="brand-text">
           <h1>HDR Web Paint</h1>
-          <span class="sub-label">Display-P3 Extended Range</span>
         </div>
       </div>
 
@@ -173,7 +172,7 @@
         <!-- Color Palette & Custom Selector -->
         <div class="color-section">
           <div class="color-section-header">
-            <h3>Display-P3 HDR Palette</h3>
+            <h3>HDR Color Palette</h3>
             <!-- Active Color Preview Chip -->
             <div class="active-color-preview-wrapper" title="Current Active Color">
               <div id="activeColorSwatch" class="active-swatch"></div>
@@ -211,7 +210,7 @@
 
             <!-- Color Values Info -->
             <div class="color-readout">
-              <span id="cssColorCode">color(display-p3 1.00 0.72 0.10)</span>
+              <span id="cssColorCode">RGB(1.00, 0.72, 0.10)</span>
             </div>
           </div>
 
@@ -239,7 +238,7 @@
         </div>
         <div class="modal-content">
           <p class="modal-intro">
-            Designed for <strong>HDR displays & mobile OLED screens</strong> (DisplayHDR, Apple Super Retina XDR, Google Pixel, Samsung Galaxy, and wide-gamut Display-P3 monitors).
+            Designed for <strong>HDR displays & mobile OLED screens</strong> (DisplayHDR, Apple Super Retina XDR, Google Pixel, Samsung Galaxy, and high-brightness HDR screens).
           </p>
 
           <div class="diag-list">
@@ -248,7 +247,7 @@
               <span id="diagHdrStatus" class="diag-val highlight">Detecting...</span>
             </div>
             <div class="diag-item">
-              <span class="diag-label">Display-P3 Wide Gamut:</span>
+              <span class="diag-label">Wide Color Gamut:</span>
               <span id="diagP3Status" class="diag-val">Detecting...</span>
             </div>
             <div class="diag-item">

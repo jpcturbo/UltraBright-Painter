@@ -155,14 +155,6 @@ html, body {
   line-height: 1.2;
 }
 
-.sub-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--accent-hdr);
-  letter-spacing: 0.2px;
-  display: block;
-}
-
 .header-actions {
   display: flex;
   align-items: center;
@@ -691,10 +683,6 @@ html, body {
 
   .brand-text h1 {
     font-size: 14px;
-  }
-
-  .sub-label {
-    display: none; /* Hide subtitle on small screens */
   }
 
   .workspace-layout {

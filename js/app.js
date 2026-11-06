@@ -100,17 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const info = hdrEngine.hdrInfo;
     if (info.highDynamicRange) {
       hdrBadgeBtn.classList.remove('sdr-mode');
-      hdrStatusText.textContent = 'HDR Active (Display-P3)';
+      hdrStatusText.textContent = 'HDR Active';
       diagHdrStatus.textContent = 'Detected & Active (Windows 11 HDR ON)';
       diagHdrStatus.className = 'diag-val highlight';
     } else {
       hdrBadgeBtn.classList.add('sdr-mode');
-      hdrStatusText.textContent = info.displayP3 ? 'P3 Gamut Active' : 'SDR Mode';
+      hdrStatusText.textContent = info.displayP3 ? 'Wide Gamut Active' : 'SDR Mode';
       diagHdrStatus.textContent = 'Standard Dynamic Range';
       diagHdrStatus.className = 'diag-val';
     }
 
-    diagP3Status.textContent = info.displayP3 ? 'Supported (Wide Gamut P3)' : 'sRGB Standard Fallback';
+    diagP3Status.textContent = info.displayP3 ? 'Supported (Wide Color Gamut)' : 'sRGB Standard Fallback';
     diagFormatStatus.textContent = info.float16Buffer ? 'RGBA16F Half-Float (Extended Range)' : 'Standard 8-bit Clamped';
     diagPeakStatus.textContent = info.highDynamicRange ? '~600+ nits (HDR Display Peak)' : '~120-150 nits (SDR Target)';
   }
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeColorSwatch.style.boxShadow = `0 0 ${Math.min(24, intensity * 5)}px currentColor`;
 
     activeColorLabel.textContent = `${state.currentColorName} (${intensity.toFixed(1)}x)`;
-    cssColorCode.textContent = `color(display-p3 ${r.toFixed(2)} ${g.toFixed(2)} ${b.toFixed(2)}) × ${intensity.toFixed(1)}x`;
+    cssColorCode.textContent = `RGB(${r.toFixed(2)}, ${g.toFixed(2)}, ${b.toFixed(2)}) × ${intensity.toFixed(1)}x`;
 
     // Also update cursor ring color
     brushCursor.style.borderColor = p3Color;
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyFreeformColor() {
     const rgb = hsvToRgb(state.currentHue, state.currentSat, state.currentVal);
     hdrEngine.brushColor = [rgb[0], rgb[1], rgb[2]];
-    state.currentColorName = 'Custom P3 HDR';
+    state.currentColorName = 'Custom HDR';
     updateActiveSwatchUI();
 
     // Deselect preset swatches

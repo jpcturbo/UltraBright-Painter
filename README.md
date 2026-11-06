@@ -1,9 +1,9 @@
 # HDR Web Paint 🎨✨
-### High Dynamic Range & Display-P3 Web Painting Application
+### High Dynamic Range Web Painting Application
 
-A fun, responsive web painting application built to explore **High Dynamic Range (HDR)** and **Display-P3 Wide Color Gamut** directly inside modern browsers.
+A fun, responsive web painting application built to explore **High Dynamic Range (HDR)** and wide color gamut directly inside modern browsers.
 
-Designed specifically for HDR-capable displays and modern high-brightness mobile OLED/HDR screens (iPhone Super Retina XDR, Samsung Galaxy AMOLED, Google Pixel, and wide-gamut Display-P3 monitors).
+Designed specifically for HDR-capable displays and modern high-brightness mobile OLED/HDR screens (iPhone Super Retina XDR, Samsung Galaxy AMOLED, Google Pixel, and high-brightness HDR monitors).
 
 ---
 
@@ -21,8 +21,8 @@ Designed specifically for HDR-capable displays and modern high-brightness mobile
   4. **Eraser**: Smoothly carves away paint back to the deep canvas background.
 
 - **Color Palette & Free-form Selector**:
-  - **Curated HDR & P3 Palette**: Includes super-luminous colors like *Solar Blast (600 nits)*, *Plasma Sun Gold*, *Cyber Neon Cyan*, *Supernova Magenta*, and *Bioluminescent Lime*.
-  - **Free-Form P3 Color Picker**: Interactive 2D Saturation/Value gradient with full 360° Hue slider.
+  - **Curated HDR Palette**: Includes super-luminous colors like *Solar Blast (600 nits)*, *Plasma Sun Gold*, *Cyber Neon Cyan*, *Supernova Magenta*, and *Bioluminescent Lime*.
+  - **Free-Form Color Picker**: Interactive 2D Saturation/Value gradient with full 360° Hue slider.
   - **HDR Luminance Boost Slider**: Seamlessly scale luminance multiplier from `1.0x` (SDR ~100-120 nits) up to `5.0x` (Peak HDR ~600+ nits) with real-time estimated nits readouts.
   - **Chromaticity-Preserved Saturation**: Built-in maximum chroma retention prevents colors from bleaching out to white at high luminance. As you raise brightness into peak HDR, pure reds, cyans, and golds remain vivid, saturated, and laser-pure.
   - **Quick Tier Chips**: Jump instantly between `1.0x SDR`, `2.2x Glow`, `3.5x Solar`, and `5.0x Peak`.

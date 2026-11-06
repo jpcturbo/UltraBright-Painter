@@ -80,12 +80,12 @@
       css: 'color(display-p3 0.75 0.25 1.0)'
     },
 
-    // Tier 3: Display P3 Wide Gamut Standard (1.0x - 1.4x)
+    // Tier 3: Wide Gamut Standard (1.0x - 1.4x)
     {
-      name: 'Deep P3 Crimson',
+      name: 'Deep Crimson',
       p3: [0.95, 0.05, 0.15],
       intensity: 1.2,
-      tag: 'P3 Gamut',
+      tag: 'Wide Gamut',
       css: 'color(display-p3 0.95 0.05 0.15)'
     },
     {
