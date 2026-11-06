@@ -83,11 +83,8 @@ export class HDREngine {
     this.gl = gl;
 
     // Enable floating-point color buffer extensions for WebGL2
-    const extColorFloat = gl.getExtension('EXT_color_buffer_float');
-    const extFloatLinear = gl.getExtension('OES_texture_float_linear');
-    if (!extColorFloat) {
-      console.warn('EXT_color_buffer_float not supported.');
-    }
+    this.extColorFloat = gl.getExtension('EXT_color_buffer_float');
+    this.extFloatLinear = gl.getExtension('OES_texture_float_linear') || gl.getExtension('OES_texture_half_float_linear');
 
     // Try setting drawing buffer storage to RGBA16F for extended dynamic range
     this.setupDrawingBufferStorage();
@@ -128,7 +125,7 @@ export class HDREngine {
 
     // Common Vertex Shader
     const vsSource = `#version 300 es
-      in vec2 a_position;
+      layout(location = 0) in vec2 a_position;
       out vec2 v_uv;
       void main() {
         v_uv = (a_position + 1.0) * 0.5;
@@ -353,8 +350,9 @@ export class HDREngine {
       null
     );
 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    const filter = this.extFloatLinear ? gl.LINEAR : gl.NEAREST;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
@@ -522,7 +520,7 @@ export class HDREngine {
     this.isDrawing = true;
     this.pushUndoState();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const pt = { x: x * dpr, y: (this.canvas.clientHeight - y) * dpr };
+    const pt = { x: x * dpr, y: this.canvasHeight - (y * dpr) };
     this.lastPoint = pt;
 
     if (this.activeTool === 'sun') {
@@ -538,7 +536,7 @@ export class HDREngine {
   continueStroke(x, y) {
     if (!this.isDrawing) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const pt = { x: x * dpr, y: (this.canvas.clientHeight - y) * dpr };
+    const pt = { x: x * dpr, y: this.canvasHeight - (y * dpr) };
 
     if (this.activeTool === 'sun' || this.activeTool === 'moon') {
       // Stamp tools place once on tap/drag
