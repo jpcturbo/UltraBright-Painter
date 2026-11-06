@@ -170,6 +170,24 @@
               <button class="tier-chip" data-boost="5.0">5.0x Peak</button>
             </div>
           </div>
+
+          <!-- Chroma Retention (Preserve Saturation) Control -->
+          <div class="control-row chroma-container">
+            <div class="label-with-value">
+              <label for="chromaSlider" class="chroma-label">
+                <span>Chroma Retention</span>
+                <span class="chroma-chip" id="chromaChip">Vivid HDR</span>
+              </label>
+              <span id="chromaValText" class="value-badge highlight">85%</span>
+            </div>
+            <input type="range" id="chromaSlider" min="0" max="100" value="85" class="styled-slider chroma-slider">
+            <div class="chroma-quick-presets">
+              <button class="chroma-preset-btn" data-chroma="0.0">Linear Wash</button>
+              <button class="chroma-preset-btn" data-chroma="0.5">Balanced</button>
+              <button class="chroma-preset-btn active" data-chroma="0.85">Vivid HDR</button>
+              <button class="chroma-preset-btn" data-chroma="1.0">Laser Pure</button>
+            </div>
+          </div>
         </div>
 
         <!-- Color Palette & Custom Selector -->

@@ -433,6 +433,69 @@ html, body {
   box-shadow: 0 0 10px rgba(255, 174, 25, 0.25);
 }
 
+/* Chroma Retention Controls */
+.chroma-container {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.chroma-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.chroma-chip {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #00c6ff, #0072ff);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.3px;
+  box-shadow: 0 0 8px rgba(0, 114, 255, 0.5);
+}
+
+.chroma-slider {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.15), #00c6ff, #ff007f);
+}
+
+.chroma-quick-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.chroma-preset-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 2px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.chroma-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.chroma-preset-btn.active {
+  background: rgba(0, 198, 255, 0.2);
+  border-color: rgba(0, 198, 255, 0.5);
+  color: #00c6ff;
+  box-shadow: 0 0 10px rgba(0, 198, 255, 0.25);
+}
+
 /* ==========================================================================
    Color Palette Section
    ========================================================================== */

@@ -22,6 +22,7 @@ export class HDREngine {
     this.brushOpacity = 1.0;
     this.brushColor = [1.0, 0.4, 0.1]; // Display P3 RGB
     this.hdrIntensity = 2.5; // 1.0 = SDR 100 nits, up to 5.0x = Peak HDR highlights
+    this.chromaRetention = 0.85; // 0.0 = linear wash, 1.0 = maximum vivid chromaticity preservation
     this.activeTool = 'brush'; // 'brush', 'sun', 'moon', 'eraser'
     this.moonPhase = 0.5; // 0.0 = razor crescent, 0.5 = half moon, 1.0 = full moon
     this.backgroundColor = [0.03, 0.03, 0.04, 1.0]; // Deep OLED/IPS Black
@@ -155,6 +156,7 @@ export class HDREngine {
       uniform vec3 u_color;
       uniform vec3 u_bgColor;
       uniform float u_intensity;
+      uniform float u_chromaRetention;
       uniform float u_opacity;
       uniform int u_isEraser;
       out vec4 fragColor;
@@ -175,8 +177,27 @@ export class HDREngine {
           // Erase back to exact canvas background color
           fragColor = vec4(u_bgColor, alpha);
         } else {
-          // Output high-dynamic-range photon emission
-          vec3 hdrRGB = u_color * u_intensity;
+          // Chromaticity-preserving HDR scaling
+          // Prevents subordinate RGB channels from climbing into the dominant subpixel clipping ceiling
+          vec3 baseCol = u_color;
+          float maxC = max(baseCol.r, max(baseCol.g, baseCol.b));
+          float minC = min(baseCol.r, min(baseCol.g, baseCol.b));
+          float chroma = maxC - minC;
+
+          vec3 hdrRGB;
+          if (chroma > 0.001 && u_intensity > 1.0 && u_chromaRetention > 0.01) {
+            // Normalize color relative to its chroma range
+            vec3 norm = (baseCol - minC) / chroma;
+            // Power curve suppresses subordinate channels from whitening out the color
+            float p = 1.0 + u_chromaRetention * (u_intensity - 1.0) * 0.55;
+            vec3 boostedNorm = pow(max(vec3(0.0), norm), vec3(p));
+            // Floor scaling maintains dark contrast without graying
+            float floorScale = minC * pow(u_intensity, max(0.0, 1.0 - u_chromaRetention * 0.8));
+            hdrRGB = boostedNorm * (chroma * u_intensity) + floorScale;
+          } else {
+            hdrRGB = baseCol * u_intensity;
+          }
+
           fragColor = vec4(hdrRGB, alpha);
         }
       }
@@ -625,6 +646,7 @@ export class HDREngine {
       this.backgroundColor[2]
     ]);
     gl.uniform1f(gl.getUniformLocation(this.progBrush, 'u_intensity'), this.hdrIntensity);
+    gl.uniform1f(gl.getUniformLocation(this.progBrush, 'u_chromaRetention'), this.chromaRetention);
     gl.uniform1f(gl.getUniformLocation(this.progBrush, 'u_opacity'), this.brushOpacity);
     gl.uniform1i(gl.getUniformLocation(this.progBrush, 'u_isEraser'), this.activeTool === 'eraser' ? 1 : 0);
 

@@ -34,6 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const hdrBoostValText = document.getElementById('hdrBoostValText');
   const tierChips = document.querySelectorAll('.tier-chip');
 
+  const chromaSlider = document.getElementById('chromaSlider');
+  const chromaValText = document.getElementById('chromaValText');
+  const chromaChip = document.getElementById('chromaChip');
+  const chromaPresetBtns = document.querySelectorAll('.chroma-preset-btn');
+
   const swatchesGrid = document.getElementById('swatchesGrid');
   const activeColorSwatch = document.getElementById('activeColorSwatch');
   const activeColorLabel = document.getElementById('activeColorLabel');
@@ -257,6 +262,48 @@ document.addEventListener('DOMContentLoaded', () => {
         updateHdrBoostUI(boost);
         updateActiveSwatchUI();
       });
+    });
+
+    // Chroma Retention Slider
+    chromaSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      hdrEngine.chromaRetention = val / 100;
+      updateChromaUI(val / 100);
+    });
+
+    // Chroma Preset Buttons
+    chromaPresetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        chromaPresetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const val = parseFloat(btn.dataset.chroma);
+        hdrEngine.chromaRetention = val;
+        chromaSlider.value = Math.round(val * 100);
+        updateChromaUI(val);
+      });
+    });
+  }
+
+  function updateChromaUI(val) {
+    const pct = Math.round(val * 100);
+    chromaValText.textContent = `${pct}%`;
+
+    let label = 'Vivid HDR';
+    if (val <= 0.1) label = 'Linear Wash';
+    else if (val <= 0.6) label = 'Balanced';
+    else if (val <= 0.9) label = 'Vivid HDR';
+    else label = 'Laser Pure';
+
+    chromaChip.textContent = label;
+
+    chromaPresetBtns.forEach(btn => {
+      const b = parseFloat(btn.dataset.chroma);
+      if (Math.abs(b - val) < 0.08) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
     });
   }
 

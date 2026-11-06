@@ -24,6 +24,7 @@ Designed specifically for HDR-capable displays and modern high-brightness mobile
   - **Curated HDR & P3 Palette**: Includes super-luminous colors like *Solar Blast (600 nits)*, *Plasma Sun Gold*, *Cyber Neon Cyan*, *Supernova Magenta*, and *Bioluminescent Lime*.
   - **Free-Form P3 Color Picker**: Interactive 2D Saturation/Value gradient with full 360° Hue slider.
   - **HDR Luminance Boost Slider**: Seamlessly scale luminance multiplier from `1.0x` (SDR ~100-120 nits) up to `5.0x` (Peak HDR ~600+ nits) with real-time estimated nits readouts.
+  - **Chroma Retention (Vivid HDR)**: Solves the classic "washout to white" problem when boosting brightness. Prevents subordinate RGB subpixels from diluting the dominant color, keeping colors laser-saturated even at peak 600-nit luminance. Modes include *Linear Wash*, *Balanced*, *Vivid HDR*, and *Laser Pure*.
   - **Quick Tier Chips**: Jump instantly between `1.0x SDR`, `2.2x Glow`, `3.5x Solar`, and `5.0x Peak`.
 
 - **Responsive Viewport Design**:
