@@ -444,8 +444,18 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    btnExport.addEventListener('click', () => {
-      hdrEngine.exportImage(`HDR-Paint-${Date.now()}.png`);
+    btnExport.addEventListener('click', async () => {
+      btnExport.disabled = true;
+      btnExport.classList.add('loading');
+      try {
+        await hdrEngine.exportUltraHDR(`HDR-Paint-${Date.now()}.jpg`);
+      } catch (err) {
+        console.error('Ultra HDR export failed, falling back to standard PNG:', err);
+        hdrEngine.exportImage(`HDR-Paint-${Date.now()}.png`);
+      } finally {
+        btnExport.disabled = false;
+        btnExport.classList.remove('loading');
+      }
     });
 
     // Canvas Background Color Options

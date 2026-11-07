@@ -34,7 +34,7 @@ Designed specifically for HDR-capable displays and modern high-brightness mobile
 - **Canvas Spaces & Utilities**:
   - Deep Space Canvas Backgrounds (OLED Black, Charcoal Grey, Deep Navy, Dark Nebula) crafted to maximize contrast on IPS Black and OLED panels.
   - Full Undo / Redo history stack.
-  - One-click high-resolution PNG artwork export.
+  - One-click **Ultra HDR JPEG (`.jpg`) artwork export**: embeds ISO 21496-1 / Adobe gain map metadata and Google GContainer directory so artwork renders in true high dynamic range on Android (Google Photos) and Windows 11 (Chrome/Edge/Photos), while remaining fully backwards compatible with standard SDR viewers.
   - Live HDR display diagnostics badge and monitor status modal.
 
 ---

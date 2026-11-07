@@ -721,6 +721,185 @@ class HDREngine {
     this.hdrInfo.mode = '2D Canvas (Display-P3 Fallback)';
   }
 
+  // Injects an APP1 XMP metadata segment into a JPEG byte buffer
+  injectApp1Segment(jpegBytes, payloadString) {
+    const enc = new TextEncoder();
+    const payloadBytes = enc.encode(payloadString);
+    const dataLen = payloadBytes.length;
+    const segLen = 2 + dataLen;
+
+    if (segLen > 65535) {
+      console.warn('XMP metadata payload exceeds 64KB APP1 marker limit');
+      return jpegBytes;
+    }
+
+    const app1 = new Uint8Array(2 + segLen);
+    app1[0] = 0xFF;
+    app1[1] = 0xE1;
+    app1[2] = (segLen >> 8) & 0xFF;
+    app1[3] = segLen & 0xFF;
+    app1.set(payloadBytes, 4);
+
+    let insertPos = 2;
+    if (jpegBytes[0] === 0xFF && jpegBytes[1] === 0xD8) {
+      if (jpegBytes[2] === 0xFF && jpegBytes[3] === 0xE0) {
+        const app0Len = (jpegBytes[4] << 8) | jpegBytes[5];
+        insertPos = 4 + app0Len;
+      }
+    }
+
+    const result = new Uint8Array(jpegBytes.length + app1.length);
+    result.set(jpegBytes.subarray(0, insertPos), 0);
+    result.set(app1, insertPos);
+    result.set(jpegBytes.subarray(insertPos), insertPos + app1.length);
+    return result;
+  }
+
+  /**
+   * Export the artwork as an Ultra HDR JPEG (.jpg).
+   * Compatible with Android 14+ (Google Photos/Gallery) and Windows 11 (Chrome/Edge/Photos with HDR).
+   * Encodes a standard SDR JPEG base plus an embedded Adobe/Google gain map JPEG with GContainer metadata.
+   */
+  async exportUltraHDR(filename = `HDR-Artwork-${Date.now()}.jpg`) {
+    if (!this.gl || !this.fbo) {
+      this.exportImage();
+      return;
+    }
+
+    const gl = this.gl;
+    const width = this.canvasWidth;
+    const height = this.canvasHeight;
+
+    // Read full floating point HDR pixel buffer from offscreen FBO
+    const hdrPixels = new Float32Array(width * height * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    try {
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.FLOAT, hdrPixels);
+    } catch (e) {
+      console.warn('Float readPixels not supported on this platform, falling back to standard export:', e);
+      this.exportImage(filename.replace(/\.jpg$/i, '.png'));
+      return;
+    }
+
+    // Allocate SDR base and Gain Map pixel buffers (flipped vertically from WebGL to 2D canvas coordinates)
+    const sdrData = new Uint8ClampedArray(width * height * 4);
+    const gainData = new Uint8ClampedArray(width * height * 4);
+
+    let maxLogGain = 0.0;
+    const logGains = new Float32Array(width * height);
+
+    for (let y = 0; y < height; y++) {
+      const srcRow = y * width * 4;
+      const dstRow = (height - 1 - y) * width * 4;
+      const pixelRowOffset = (height - 1 - y) * width;
+
+      for (let x = 0; x < width; x++) {
+        const srcIdx = srcRow + x * 4;
+        const dstIdx = dstRow + x * 4;
+        const pIdx = pixelRowOffset + x;
+
+        const rHdr = Math.max(0, hdrPixels[srcIdx]);
+        const gHdr = Math.max(0, hdrPixels[srcIdx + 1]);
+        const bHdr = Math.max(0, hdrPixels[srcIdx + 2]);
+
+        // Base SDR clamped to [0.0, 1.0]
+        const rSdr = Math.min(1.0, rHdr);
+        const gSdr = Math.min(1.0, gHdr);
+        const bSdr = Math.min(1.0, bHdr);
+
+        sdrData[dstIdx] = Math.round(rSdr * 255);
+        sdrData[dstIdx + 1] = Math.round(gSdr * 255);
+        sdrData[dstIdx + 2] = Math.round(bSdr * 255);
+        sdrData[dstIdx + 3] = 255;
+
+        // Display-P3 / Rec.709 luminance
+        const lumHdr = 0.2126 * rHdr + 0.7152 * gHdr + 0.0722 * bHdr;
+        const lumSdr = 0.2126 * rSdr + 0.7152 * gSdr + 0.0722 * bSdr;
+
+        // Ultra HDR gain formula with 0.015625 (1/64) offset to eliminate division artifacts
+        const ratio = (lumHdr + 0.015625) / (lumSdr + 0.015625);
+        const logG = Math.max(0.0, Math.log2(ratio));
+        logGains[pIdx] = logG;
+
+        if (logG > maxLogGain) {
+          maxLogGain = logG;
+        }
+      }
+    }
+
+    // Determine GainMapMax headroom (minimum 1.0, capped between 1.0 and 4.0 = up to 16x headroom)
+    const gainMapMax = Math.max(1.0, Math.min(4.0, Math.ceil(maxLogGain * 10) / 10 || 3.0));
+
+    // Populate Gain Map grayscale buffer normalized to [0, 255]
+    for (let i = 0; i < width * height; i++) {
+      const normGain = Math.max(0.0, Math.min(1.0, logGains[i] / gainMapMax));
+      const val = Math.round(normGain * 255);
+      const dstIdx = i * 4;
+      gainData[dstIdx] = val;
+      gainData[dstIdx + 1] = val;
+      gainData[dstIdx + 2] = val;
+      gainData[dstIdx + 3] = 255;
+    }
+
+    // Render SDR base to offscreen canvas
+    const sdrCanvas = document.createElement('canvas');
+    sdrCanvas.width = width;
+    sdrCanvas.height = height;
+    const sdrCtx = sdrCanvas.getContext('2d', { colorSpace: 'display-p3' }) || sdrCanvas.getContext('2d');
+    let sdrImgData;
+    try {
+      sdrImgData = new ImageData(sdrData, width, height, { colorSpace: 'display-p3' });
+    } catch {
+      sdrImgData = new ImageData(sdrData, width, height);
+    }
+    sdrCtx.putImageData(sdrImgData, 0, 0);
+
+    // Render Gain Map to offscreen canvas
+    const gainCanvas = document.createElement('canvas');
+    gainCanvas.width = width;
+    gainCanvas.height = height;
+    const gainCtx = gainCanvas.getContext('2d');
+    const gainImgData = new ImageData(gainData, width, height);
+    gainCtx.putImageData(gainImgData, 0, 0);
+
+    // Encode both renditions into JPEG ArrayBuffers
+    const [sdrBlob, gainBlob] = await Promise.all([
+      new Promise(res => sdrCanvas.toBlob(res, 'image/jpeg', 0.95)),
+      new Promise(res => gainCanvas.toBlob(res, 'image/jpeg', 0.85))
+    ]);
+
+    if (!sdrBlob || !gainBlob) {
+      console.warn('Canvas JPEG encoding failed, falling back to standard export');
+      this.exportImage(filename.replace(/\.jpg$/i, '.png'));
+      return;
+    }
+
+    const sdrBytes = new Uint8Array(await sdrBlob.arrayBuffer());
+    let gainBytes = new Uint8Array(await gainBlob.arrayBuffer());
+
+    // 1. Build and inject Secondary XMP Metadata for Gain Map image
+    const secondaryXmp = `http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0" hdrgm:GainMapMin="0.000000" hdrgm:GainMapMax="${gainMapMax.toFixed(6)}" hdrgm:Gamma="1.000000" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.015625" hdrgm:HDRCapacityMin="0.000000" hdrgm:HDRCapacityMax="${gainMapMax.toFixed(6)}" hdrgm:BaseRenditionIsHDR="False"/></rdf:RDF></x:xmpmeta>`;
+    gainBytes = this.injectApp1Segment(gainBytes, secondaryXmp);
+    const finalGainLength = gainBytes.length;
+
+    // 2. Build and inject Primary XMP Metadata with GContainer directory pointing to Gain Map
+    const primaryXmp = `http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0" hdrgm:GainMapMin="0.000000" hdrgm:GainMapMax="${gainMapMax.toFixed(6)}" hdrgm:Gamma="1.000000" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.015625" hdrgm:HDRCapacityMin="0.000000" hdrgm:HDRCapacityMax="${gainMapMax.toFixed(6)}" hdrgm:BaseRenditionIsHDR="False"><Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="${finalGainLength}"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>`;
+    const finalSdrBytes = this.injectApp1Segment(sdrBytes, primaryXmp);
+
+    // 3. Concatenate Primary SDR JPEG and Secondary Gain Map JPEG
+    const ultraHdrBytes = new Uint8Array(finalSdrBytes.length + gainBytes.length);
+    ultraHdrBytes.set(finalSdrBytes, 0);
+    ultraHdrBytes.set(gainBytes, finalSdrBytes.length);
+
+    // 4. Trigger download
+    const blob = new Blob([ultraHdrBytes], { type: 'image/jpeg' });
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  }
+
   exportImage(filename = 'hdr-paint.png') {
     // Generate high resolution PNG download
     const link = document.createElement('a');
