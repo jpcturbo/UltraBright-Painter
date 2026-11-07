@@ -722,7 +722,7 @@ class HDREngine {
   }
 
   // Injects an APP1 XMP metadata segment into a JPEG byte buffer
-  injectApp1Segment(jpegBytes, payloadString) {
+  injectApp1Segment(jpegBytes, payloadString, targetPos = null) {
     const enc = new TextEncoder();
     const payloadBytes = enc.encode(payloadString);
     const dataLen = payloadBytes.length;
@@ -740,8 +740,8 @@ class HDREngine {
     app1[3] = segLen & 0xFF;
     app1.set(payloadBytes, 4);
 
-    let insertPos = 2;
-    if (jpegBytes[0] === 0xFF && jpegBytes[1] === 0xD8) {
+    let insertPos = (targetPos !== null) ? targetPos : 2;
+    if (targetPos === null && jpegBytes[0] === 0xFF && jpegBytes[1] === 0xD8) {
       if (jpegBytes[2] === 0xFF && jpegBytes[3] === 0xE0) {
         const app0Len = (jpegBytes[4] << 8) | jpegBytes[5];
         insertPos = 4 + app0Len;
@@ -755,10 +755,78 @@ class HDREngine {
     return result;
   }
 
+  // Generates an APP2 Multi-Picture Format (MPF) segment required by libultrahdr,
+  // Google Photos, Samsung Gallery, and Chromium to link the base image and secondary gain map.
+  generateMpfApp2(primarySize, app2Pos, secondarySize) {
+    const secondaryOffset = primarySize - app2Pos - 8;
+    const mpf = new Uint8Array(86);
+    const view = new DataView(mpf.buffer);
+
+    // 1. Signature 'MPF\0' (4 bytes)
+    mpf[0] = 0x4D; mpf[1] = 0x50; mpf[2] = 0x46; mpf[3] = 0x00;
+
+    // 2. TIFF Header: Big Endian 'MM\0*' (4 bytes)
+    mpf[4] = 0x4D; mpf[5] = 0x4D; mpf[6] = 0x00; mpf[7] = 0x2A;
+
+    // 3. Index IFD offset from start of TIFF header = 8 (4 bytes)
+    view.setUint32(8, 8, false);
+
+    // 4. Number of IFD tags = 3 (2 bytes)
+    view.setUint16(12, 3, false);
+
+    // 5. Tag 1: Version 0xB000, type 7 (UNDEFINED), count 4, value '0100' (12 bytes)
+    view.setUint16(14, 0xB000, false);
+    view.setUint16(16, 7, false);
+    view.setUint32(18, 4, false);
+    mpf[22] = 0x30; mpf[23] = 0x31; mpf[24] = 0x30; mpf[25] = 0x30; // '0100'
+
+    // 6. Tag 2: Number of images 0xB001, type 4 (LONG), count 1, value 2 (12 bytes)
+    view.setUint16(26, 0xB001, false);
+    view.setUint16(28, 4, false);
+    view.setUint32(30, 1, false);
+    view.setUint32(34, 2, false); // 2 images
+
+    // 7. Tag 3: MP Entry 0xB002, type 7 (UNDEFINED), count 32, offset 50 (12 bytes)
+    view.setUint16(38, 0xB002, false);
+    view.setUint16(40, 7, false);
+    view.setUint32(42, 32, false); // 2 entries * 16 bytes
+    view.setUint32(46, 50, false); // offset from TIFF header to MP entries
+
+    // 8. Next IFD offset = 0 (4 bytes)
+    view.setUint32(50, 0, false);
+
+    // 9. MP Entry 1 (Primary Image):
+    // Attributes: 0x030000 (primary image)
+    view.setUint32(54, 0x030000, false);
+    view.setUint32(58, primarySize, false);
+    view.setUint32(62, 0, false); // offset = 0
+    view.setUint16(66, 0, false);
+    view.setUint16(68, 0, false);
+
+    // 10. MP Entry 2 (Secondary Gain Map Image):
+    // Attributes: 0x000000 (standard JPEG)
+    view.setUint32(70, 0x000000, false);
+    view.setUint32(74, secondarySize, false);
+    view.setUint32(78, secondaryOffset, false);
+    view.setUint16(82, 0, false);
+    view.setUint16(84, 0, false);
+
+    // Wrap in JPEG APP2 marker (0xFF, 0xE2, length_high, length_low)
+    const segLen = 2 + mpf.length; // 88
+    const app2 = new Uint8Array(2 + segLen); // 90
+    app2[0] = 0xFF;
+    app2[1] = 0xE2;
+    app2[2] = (segLen >> 8) & 0xFF;
+    app2[3] = segLen & 0xFF;
+    app2.set(mpf, 4);
+    return app2;
+  }
+
   /**
    * Export the artwork as an Ultra HDR JPEG (.jpg).
-   * Compatible with Android 14+ (Google Photos/Gallery) and Windows 11 (Chrome/Edge/Photos with HDR).
-   * Encodes a standard SDR JPEG base plus an embedded Adobe/Google gain map JPEG with GContainer metadata.
+   * Fully compliant with libultrahdr / Google Photos / Samsung Gallery / Chromium:
+   * 1. Primary SDR JPEG with APP1 XMP (GContainer directory) and APP2 MPF (Multi-Picture Format index)
+   * 2. Secondary Gain Map JPEG with APP1 XMP (hdrgm attributes)
    */
   async exportUltraHDR(filename = `HDR-Artwork-${Date.now()}.jpg`) {
     if (!this.gl || !this.fbo) {
@@ -812,13 +880,12 @@ class HDREngine {
         sdrData[dstIdx + 2] = Math.round(bSdr * 255);
         sdrData[dstIdx + 3] = 255;
 
-        // Display-P3 / Rec.709 luminance
-        const lumHdr = 0.2126 * rHdr + 0.7152 * gHdr + 0.0722 * bHdr;
-        const lumSdr = 0.2126 * rSdr + 0.7152 * gSdr + 0.0722 * bSdr;
-
-        // Ultra HDR gain formula with 0.015625 (1/64) offset to eliminate division artifacts
-        const ratio = (lumHdr + 0.015625) / (lumSdr + 0.015625);
-        const logG = Math.max(0.0, Math.log2(ratio));
+        // Channel boost ratio using ISO 21496-1 / Ultra HDR offset (1/64 = 0.015625)
+        const rRatio = (rHdr + 0.015625) / (rSdr + 0.015625);
+        const gRatio = (gHdr + 0.015625) / (gSdr + 0.015625);
+        const bRatio = (bHdr + 0.015625) / (bSdr + 0.015625);
+        const maxRatio = Math.max(rRatio, gRatio, bRatio);
+        const logG = Math.max(0.0, Math.log2(maxRatio));
         logGains[pIdx] = logG;
 
         if (logG > maxLogGain) {
@@ -827,8 +894,8 @@ class HDREngine {
       }
     }
 
-    // Determine GainMapMax headroom (minimum 1.0, capped between 1.0 and 4.0 = up to 16x headroom)
-    const gainMapMax = Math.max(1.0, Math.min(4.0, Math.ceil(maxLogGain * 10) / 10 || 3.0));
+    // Determine GainMapMax headroom (minimum 1.5, capped between 1.5 and 4.0 = up to 16x headroom)
+    const gainMapMax = Math.max(1.5, Math.min(4.0, Math.ceil(maxLogGain * 10) / 10 || 3.0));
 
     // Populate Gain Map grayscale buffer normalized to [0, 255]
     for (let i = 0; i < width * height; i++) {
@@ -874,7 +941,7 @@ class HDREngine {
       return;
     }
 
-    const sdrBytes = new Uint8Array(await sdrBlob.arrayBuffer());
+    let sdrBytes = new Uint8Array(await sdrBlob.arrayBuffer());
     let gainBytes = new Uint8Array(await gainBlob.arrayBuffer());
 
     // 1. Build and inject Secondary XMP Metadata for Gain Map image
@@ -883,15 +950,36 @@ class HDREngine {
     const finalGainLength = gainBytes.length;
 
     // 2. Build and inject Primary XMP Metadata with GContainer directory pointing to Gain Map
-    const primaryXmp = `http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0" hdrgm:GainMapMin="0.000000" hdrgm:GainMapMax="${gainMapMax.toFixed(6)}" hdrgm:Gamma="1.000000" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.015625" hdrgm:HDRCapacityMin="0.000000" hdrgm:HDRCapacityMax="${gainMapMax.toFixed(6)}" hdrgm:BaseRenditionIsHDR="False"><Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="${finalGainLength}"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>`;
-    const finalSdrBytes = this.injectApp1Segment(sdrBytes, primaryXmp);
+    const primaryXmp = `http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0"><Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="${finalGainLength}"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>`;
 
-    // 3. Concatenate Primary SDR JPEG and Secondary Gain Map JPEG
-    const ultraHdrBytes = new Uint8Array(finalSdrBytes.length + gainBytes.length);
+    let sdrApp1Pos = 2;
+    if (sdrBytes[0] === 0xFF && sdrBytes[1] === 0xD8) {
+      if (sdrBytes[2] === 0xFF && sdrBytes[3] === 0xE0) {
+        const app0Len = (sdrBytes[4] << 8) | sdrBytes[5];
+        sdrApp1Pos = 4 + app0Len;
+      }
+    }
+    sdrBytes = this.injectApp1Segment(sdrBytes, primaryXmp, sdrApp1Pos);
+
+    // 3. Build and inject MPF APP2 segment immediately following APP1
+    const app1PayloadBytes = new TextEncoder().encode(primaryXmp);
+    const app1SegLen = 2 + 2 + app1PayloadBytes.length;
+    const app2Pos = sdrApp1Pos + app1SegLen;
+
+    const finalPrimarySize = sdrBytes.length + 90;
+    const app2 = this.generateMpfApp2(finalPrimarySize, app2Pos, finalGainLength);
+
+    const finalSdrBytes = new Uint8Array(finalPrimarySize);
+    finalSdrBytes.set(sdrBytes.subarray(0, app2Pos), 0);
+    finalSdrBytes.set(app2, app2Pos);
+    finalSdrBytes.set(sdrBytes.subarray(app2Pos), app2Pos + app2.length);
+
+    // 4. Concatenate Primary SDR JPEG and Secondary Gain Map JPEG
+    const ultraHdrBytes = new Uint8Array(finalPrimarySize + finalGainLength);
     ultraHdrBytes.set(finalSdrBytes, 0);
-    ultraHdrBytes.set(gainBytes, finalSdrBytes.length);
+    ultraHdrBytes.set(gainBytes, finalPrimarySize);
 
-    // 4. Trigger download
+    // 5. Trigger download
     const blob = new Blob([ultraHdrBytes], { type: 'image/jpeg' });
     const link = document.createElement('a');
     link.download = filename;
