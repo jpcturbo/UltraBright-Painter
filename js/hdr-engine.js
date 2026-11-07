@@ -870,22 +870,31 @@ class HDREngine {
         const gHdr = Math.max(0, hdrPixels[srcIdx + 1]);
         const bHdr = Math.max(0, hdrPixels[srcIdx + 2]);
 
-        // Base SDR clamped to [0.0, 1.0]
-        const rSdr = Math.min(1.0, rHdr);
-        const gSdr = Math.min(1.0, gHdr);
-        const bSdr = Math.min(1.0, bHdr);
+        // Find peak RGB channel to preserve exact chromaticity and hue ratio (R:G:B)
+        const peak = Math.max(rHdr, Math.max(gHdr, bHdr));
+        let k = 1.0;
+        let s = peak;
+
+        if (peak > 0.75) {
+          // Smooth photographic shoulder compressing [0.75, 10.0] into [0.75, 0.99]
+          // Preserves all internal gradients, brush stroke texture, and 3D volume without hard-clipping
+          s = 0.75 + 0.245 * (1.0 - Math.exp(-(peak - 0.75) / 1.5));
+          k = s / peak;
+        }
+
+        // Scale all channels by the identical scalar k to prevent color skew (e.g. orange turning into yellow)
+        const rSdr = Math.min(1.0, rHdr * k);
+        const gSdr = Math.min(1.0, gHdr * k);
+        const bSdr = Math.min(1.0, bHdr * k);
 
         sdrData[dstIdx] = Math.round(rSdr * 255);
         sdrData[dstIdx + 1] = Math.round(gSdr * 255);
         sdrData[dstIdx + 2] = Math.round(bSdr * 255);
         sdrData[dstIdx + 3] = 255;
 
-        // Channel boost ratio using ISO 21496-1 / Ultra HDR offset (1/64 = 0.015625)
-        const rRatio = (rHdr + 0.015625) / (rSdr + 0.015625);
-        const gRatio = (gHdr + 0.015625) / (gSdr + 0.015625);
-        const bRatio = (bHdr + 0.015625) / (bSdr + 0.015625);
-        const maxRatio = Math.max(rRatio, gRatio, bRatio);
-        const logG = Math.max(0.0, Math.log2(maxRatio));
+        // Exact gain required to restore original floating point HDR radiance from the tone-mapped base
+        const ratio = (peak + 0.015625) / (s + 0.015625);
+        const logG = Math.max(0.0, Math.log2(ratio));
         logGains[pIdx] = logG;
 
         if (logG > maxLogGain) {
