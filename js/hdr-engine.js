@@ -215,6 +215,7 @@ class HDREngine {
       uniform sampler2D u_texture;
       uniform float u_displayPeak;
       uniform int u_isHDR;
+      uniform int u_isMobile;
       out vec4 fragColor;
 
       void main() {
@@ -223,35 +224,44 @@ class HDREngine {
         float peak = max(c.r, max(c.g, c.b));
 
         if (u_isHDR == 1) {
-          // Display on High Dynamic Range Monitor:
-          // 100% uncompressed linear for standard SDR range (up to 1.0 = reference SDR white)
-          if (peak <= 1.0) {
-            fragColor = texCol;
-            return;
+          if (u_isMobile == 0) {
+            // Desktop HDR with extended swapchain (Windows 11 HDR):
+            if (peak <= 1.0) {
+              fragColor = texCol;
+              return;
+            }
+            float start = 1.0;
+            float headroom = max(0.2, u_displayPeak - start);
+            float D = 2.2;
+            float s = start + headroom * (1.0 - exp(-(peak - start) / D));
+            float k = s / peak;
+            fragColor = vec4(c * k, texCol.a);
+          } else {
+            // Mobile OLED HDR Mode (e.g. Samsung S23 Ultra):
+            // Expanded dynamic range mapping highlights vividly into [0.60, 0.995]
+            // Guarantees maximum contrast, glowing saturation, and distinct 1.0x, 2.2x, 3.5x, 5.0x tiers!
+            if (peak <= 0.60) {
+              fragColor = texCol;
+              return;
+            }
+            float start = 0.60;
+            float headroom = 0.395;
+            float D = 1.9;
+            float s = start + headroom * (1.0 - exp(-(peak - start) / D));
+            float k = s / peak;
+            fragColor = vec4(c * k, texCol.a);
           }
-
-          // Smooth C1 photographic shoulder compressing [1.0, 10.0] into [1.0, u_displayPeak]
-          // Strictly monotonic curve prevents hardware clipping on HDR monitors (DisplayHDR 400/600/OLED):
-          // Guarantees 1.0x SDR, 2.2x Glow, 3.5x Solar, and 5.0x Peak are ALWAYS distinctly separated on screen!
-          float start = 1.0;
-          float headroom = max(0.2, u_displayPeak - start);
-          float D = 2.2;
-          float s = start + headroom * (1.0 - exp(-(peak - start) / D));
-          float k = s / peak;
-
-          // Proportional channel scaling guarantees 100% hue and chromaticity retention on screen
-          // Prevents subordinate channels from hitting the clipping wall, keeping Cyan, Magenta, Lime, Gold vivid!
-          fragColor = vec4(c * k, texCol.a);
         } else {
-          // Display on Standard Dynamic Range Monitor (SDR):
-          if (peak <= 0.65) {
+          // Standard Dynamic Range (SDR Mode):
+          // Compressed, subdued highlights capped at SDR ceiling (~0.74) for classic 8-bit paint feel
+          if (peak <= 0.50) {
             fragColor = texCol;
             return;
           }
-          float start = 0.65;
-          float headroom = 0.35;
-          float D = 1.8;
-          float s = start + headroom * 0.985 * (1.0 - exp(-(peak - start) / D));
+          float start = 0.50;
+          float headroom = 0.245;
+          float D = 1.4;
+          float s = start + headroom * (1.0 - exp(-(peak - start) / D));
           float k = s / peak;
           fragColor = vec4(c * k, texCol.a);
         }
@@ -824,19 +834,15 @@ class HDREngine {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.canvasWidth, this.canvasHeight);
 
-    // On mobile devices (Android/iOS), the browser canvas compositor is clamped to [0, 1] by the OS window manager.
-    // Therefore, mobile devices should always use the photographic tonemapped shoulder (< 1.0) so highlights
-    // (1.0x SDR, 2.2x Glow, 3.5x Solar, 5.0x Peak) never clip into flat white.
-    // True unclamped floating-point values are preserved in this.fboTexture and exported to Ultra HDR JPEG.
     const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
-    const useUnclampedHDR = this.hdrInfo.highDynamicRange && !isMobile;
 
     gl.useProgram(this.progDisplay);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.fboTexture);
     gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_texture'), 0);
     gl.uniform1f(gl.getUniformLocation(this.progDisplay, 'u_displayPeak'), this.displayHeadroom || 2.8);
-    gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_isHDR'), useUnclampedHDR ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_isHDR'), this.hdrInfo.highDynamicRange ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_isMobile'), isMobile ? 1 : 0);
     gl.bindVertexArray(this.quadVao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
