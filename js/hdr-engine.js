@@ -56,21 +56,34 @@ class HDREngine {
   }
 
   detectHDRCapabilities() {
-    // Check URL parameters for forced HDR mode (e.g. ?hdr=1)
+    // 1. Check URL parameters and localStorage for forced/saved HDR preference
     const urlParams = typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search) : null;
     const forceHdrParam = urlParams ? (urlParams.get('hdr') === '1' || urlParams.get('hdr') === 'true' || urlParams.get('forcehdr') === '1') : false;
+    let savedHdrPref = null;
+    try {
+      const stored = localStorage.getItem('force_hdr_mode');
+      if (stored !== null) savedHdrPref = (stored === 'true');
+    } catch (e) {}
 
-    // 1. Check screen dynamic-range media queries
+    // 2. Check screen dynamic-range and color gamut queries
     const hdrQuery = window.matchMedia('(dynamic-range: high)');
     const p3Query = window.matchMedia('(color-gamut: p3)');
-    this.hdrInfo.highDynamicRange = forceHdrParam || hdrQuery.matches;
-    this.hdrInfo.displayP3 = forceHdrParam || p3Query.matches;
-    this.displayHeadroom = this.hdrInfo.highDynamicRange ? 2.8 : 1.0;
+
+    // On mobile Android flagships (e.g. Samsung Galaxy S23 Ultra AMOLED), Chrome for Android
+    // often reports (dynamic-range: high) as false in web contexts even though the screen
+    // is a 1750-nit Display-P3 HDR display. We recognize mobile P3 screens as HDR capable!
+    const isMobileP3 = p3Query.matches && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
+
+    const isHDR = forceHdrParam || (savedHdrPref !== null ? savedHdrPref : (hdrQuery.matches || isMobileP3));
+
+    this.hdrInfo.highDynamicRange = isHDR;
+    this.hdrInfo.displayP3 = p3Query.matches || isHDR;
+    this.displayHeadroom = isHDR ? 2.8 : 1.0;
 
     // Listen for live display changes (e.g. Win+Alt+B HDR toggling or dragging between monitors)
     const onDisplayChange = () => {
-      if (!this.manualHdrOverride && !forceHdrParam) {
-        this.hdrInfo.highDynamicRange = hdrQuery.matches;
+      if (!this.manualHdrOverride && !forceHdrParam && savedHdrPref === null) {
+        this.hdrInfo.highDynamicRange = hdrQuery.matches || isMobileP3;
         this.hdrInfo.displayP3 = p3Query.matches;
         this.displayHeadroom = this.hdrInfo.highDynamicRange ? 2.8 : 1.0;
         this.setupDrawingBufferStorage();
@@ -85,7 +98,7 @@ class HDREngine {
       p3Query.addEventListener('change', onDisplayChange);
     }
 
-    // 2. Configure canvas HDR if supported by browser (Chrome 122+)
+    // 3. Configure canvas HDR if supported by browser (Chrome 122+)
     if (typeof this.canvas.configureHighDynamicRange === 'function') {
       try {
         this.canvas.configureHighDynamicRange({ mode: 'extended' });
@@ -98,6 +111,9 @@ class HDREngine {
 
   setManualHDR(enabled) {
     this.manualHdrOverride = true;
+    try {
+      localStorage.setItem('force_hdr_mode', enabled ? 'true' : 'false');
+    } catch (e) {}
     this.hdrInfo.highDynamicRange = !!enabled;
     this.hdrInfo.displayP3 = !!enabled;
     this.displayHeadroom = enabled ? 2.8 : 1.0;
