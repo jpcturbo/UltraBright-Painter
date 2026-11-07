@@ -51,6 +51,12 @@
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
           </button>
+          <button id="btnPreview" class="icon-btn highlight" title="Preview Live Ultra HDR Hardware Pop (Android 14+ / Windows 11)" aria-label="Preview Ultra HDR">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
           <button id="btnExport" class="icon-btn primary" title="Save Artwork in Ultra HDR (.jpg)" aria-label="Save Artwork in Ultra HDR">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -281,6 +287,28 @@
         <div class="confirm-actions">
           <button id="confirmCancelBtn" class="confirm-btn secondary">Cancel</button>
           <button id="confirmOkBtn" class="confirm-btn danger">Clear</button>
+        </div>
+      </div>
+    </div>
+    <!-- Ultra HDR Hardware Pop Preview Modal -->
+    <div class="modal-overlay hidden" id="previewModal">
+      <div class="modal-card preview-card">
+        <div class="modal-header">
+          <h2>Ultra HDR Hardware Display Preview</h2>
+          <button id="closePreviewBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-content preview-content">
+          <p class="modal-intro">
+            Rendered as a native <strong>Ultra HDR JPEG (&lt;img&gt;)</strong> to activate Android 14+ / Windows 11 OLED hardware brightness boost.
+          </p>
+          <div class="preview-img-wrapper" id="previewImgWrapper">
+            <div class="preview-spinner" id="previewSpinner">Encoding Ultra HDR Gain Map...</div>
+            <img id="hdrPreviewImg" class="preview-img hidden" alt="Ultra HDR Preview">
+          </div>
+          <div class="preview-actions">
+            <button id="previewDownloadBtn" class="confirm-btn primary">Download Ultra HDR (.jpg)</button>
+            <button id="previewCloseBtn" class="confirm-btn secondary">Back to Painting</button>
+          </div>
         </div>
       </div>
     </div>

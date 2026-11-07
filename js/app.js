@@ -612,6 +612,75 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       closeConfirmModal();
     });
+
+    // Ultra HDR Hardware Pop Preview Modal
+    const btnPreview = document.getElementById('btnPreview');
+    const previewModal = document.getElementById('previewModal');
+    const closePreviewBtn = document.getElementById('closePreviewBtn');
+    const previewCloseBtn = document.getElementById('previewCloseBtn');
+    const previewDownloadBtn = document.getElementById('previewDownloadBtn');
+    const hdrPreviewImg = document.getElementById('hdrPreviewImg');
+    const previewSpinner = document.getElementById('previewSpinner');
+    let currentPreviewUrl = null;
+    let currentPreviewBlob = null;
+
+    async function openHdrPreview() {
+      previewModal.classList.remove('hidden');
+      hdrPreviewImg.classList.add('hidden');
+      previewSpinner.classList.remove('hidden');
+      previewSpinner.textContent = 'Encoding Ultra HDR Gain Map...';
+
+      if (currentPreviewUrl) {
+        URL.revokeObjectURL(currentPreviewUrl);
+        currentPreviewUrl = null;
+      }
+
+      currentPreviewBlob = await hdrEngine.generateUltraHDRBlob();
+      if (!currentPreviewBlob) {
+        previewSpinner.textContent = 'Preview unavailable';
+        return;
+      }
+
+      currentPreviewUrl = URL.createObjectURL(currentPreviewBlob);
+      hdrPreviewImg.src = currentPreviewUrl;
+      hdrPreviewImg.onload = () => {
+        previewSpinner.classList.add('hidden');
+        hdrPreviewImg.classList.remove('hidden');
+      };
+    }
+
+    function closeHdrPreview() {
+      previewModal.classList.add('hidden');
+      if (currentPreviewUrl) {
+        URL.revokeObjectURL(currentPreviewUrl);
+        currentPreviewUrl = null;
+      }
+    }
+
+    if (btnPreview) {
+      btnPreview.addEventListener('click', openHdrPreview);
+    }
+    if (closePreviewBtn) closePreviewBtn.addEventListener('click', closeHdrPreview);
+    if (previewCloseBtn) previewCloseBtn.addEventListener('click', closeHdrPreview);
+    if (previewModal) {
+      previewModal.addEventListener('click', (e) => {
+        if (e.target === previewModal) closeHdrPreview();
+      });
+    }
+    if (previewDownloadBtn) {
+      previewDownloadBtn.addEventListener('click', () => {
+        if (currentPreviewBlob) {
+          const filename = `HDR-Artwork-${Date.now()}.jpg`;
+          const link = document.createElement('a');
+          link.download = filename;
+          link.href = URL.createObjectURL(currentPreviewBlob);
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+        } else {
+          hdrEngine.exportUltraHDR();
+        }
+      });
+    }
   }
 
   // Start the application

@@ -824,12 +824,19 @@ class HDREngine {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.canvasWidth, this.canvasHeight);
 
+    // On mobile devices (Android/iOS), the browser canvas compositor is clamped to [0, 1] by the OS window manager.
+    // Therefore, mobile devices should always use the photographic tonemapped shoulder (< 1.0) so highlights
+    // (1.0x SDR, 2.2x Glow, 3.5x Solar, 5.0x Peak) never clip into flat white.
+    // True unclamped floating-point values are preserved in this.fboTexture and exported to Ultra HDR JPEG.
+    const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
+    const useUnclampedHDR = this.hdrInfo.highDynamicRange && !isMobile;
+
     gl.useProgram(this.progDisplay);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.fboTexture);
     gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_texture'), 0);
     gl.uniform1f(gl.getUniformLocation(this.progDisplay, 'u_displayPeak'), this.displayHeadroom || 2.8);
-    gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_isHDR'), this.hdrInfo.highDynamicRange ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_isHDR'), useUnclampedHDR ? 1 : 0);
     gl.bindVertexArray(this.quadVao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -945,15 +952,12 @@ class HDREngine {
   }
 
   /**
-   * Export the artwork as an Ultra HDR JPEG (.jpg).
-   * Fully compliant with libultrahdr / Google Photos / Samsung Gallery / Chromium:
-   * 1. Primary SDR JPEG with APP1 XMP (GContainer directory) and APP2 MPF (Multi-Picture Format index)
-   * 2. Secondary Gain Map JPEG with APP1 XMP (hdrgm attributes)
+   * Generates a fully compliant Ultra HDR JPEG Blob in memory.
+   * Encodes 1:1 linear Float16 radiance into Base SDR + Gain Map with Adobe hdrgm & MPF metadata.
    */
-  async exportUltraHDR(filename = `HDR-Artwork-${Date.now()}.jpg`) {
+  async generateUltraHDRBlob() {
     if (!this.gl || !this.fbo) {
-      this.exportImage();
-      return;
+      return null;
     }
 
     const gl = this.gl;
@@ -966,9 +970,8 @@ class HDREngine {
     try {
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.FLOAT, hdrPixels);
     } catch (e) {
-      console.warn('Float readPixels not supported on this platform, falling back to standard export:', e);
-      this.exportImage(filename.replace(/\.jpg$/i, '.png'));
-      return;
+      console.warn('Float readPixels not supported on this platform:', e);
+      return null;
     }
 
     // Allocate SDR base and Gain Map pixel buffers (flipped vertically from WebGL to 2D canvas coordinates)
@@ -1087,9 +1090,8 @@ class HDREngine {
     ]);
 
     if (!sdrBlob || !gainBlob) {
-      console.warn('Canvas JPEG encoding failed, falling back to standard export');
-      this.exportImage(filename.replace(/\.jpg$/i, '.png'));
-      return;
+      console.warn('Canvas JPEG encoding failed');
+      return null;
     }
 
     let sdrBytes = new Uint8Array(await sdrBlob.arrayBuffer());
@@ -1136,8 +1138,18 @@ class HDREngine {
     ultraHdrBytes.set(finalSdrBytes, 0);
     ultraHdrBytes.set(gainBytes, finalPrimarySize);
 
-    // 5. Trigger download
-    const blob = new Blob([ultraHdrBytes], { type: 'image/jpeg' });
+    return new Blob([ultraHdrBytes], { type: 'image/jpeg' });
+  }
+
+  /**
+   * Export the artwork as an Ultra HDR JPEG (.jpg).
+   */
+  async exportUltraHDR(filename = `HDR-Artwork-${Date.now()}.jpg`) {
+    const blob = await this.generateUltraHDRBlob();
+    if (!blob) {
+      this.exportImage(filename.replace(/\.jpg$/i, '.png'));
+      return;
+    }
     const link = document.createElement('a');
     link.download = filename;
     link.href = URL.createObjectURL(blob);
