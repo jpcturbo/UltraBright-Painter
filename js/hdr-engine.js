@@ -25,6 +25,7 @@ class HDREngine {
     this.brushColor = [1.0, 0.4, 0.1]; // Display P3 RGB
     this.hdrIntensity = 2.5; // 1.0 = SDR 100 nits, up to 5.0x = Peak HDR highlights
     this.chromaRetention = 1.0; // Maximum vivid chromaticity preservation (always active)
+    this.displayHeadroom = 2.8; // Calibrated HDR display headroom (prevents monitor hardware clipping)
     this.activeTool = 'brush'; // 'brush', 'sun', 'moon', 'eraser'
     this.moonPhase = 0.5; // 0.0 = razor crescent, 0.5 = half moon, 1.0 = full moon
     this.backgroundColor = [0.03, 0.03, 0.04, 1.0]; // Deep OLED/IPS Black
@@ -60,6 +61,7 @@ class HDREngine {
     const p3Query = window.matchMedia('(color-gamut: p3)');
     this.hdrInfo.highDynamicRange = hdrQuery.matches;
     this.hdrInfo.displayP3 = p3Query.matches;
+    this.displayHeadroom = this.hdrInfo.highDynamicRange ? 2.8 : 1.0;
 
     // 2. Configure canvas HDR if supported by browser (Chrome 122+)
     if (typeof this.canvas.configureHighDynamicRange === 'function') {
@@ -136,7 +138,7 @@ class HDREngine {
       }
     `;
 
-    // 1. Display/Composite Fragment Shader (renders offscreen HDR texture to default framebuffer)
+    // 1. Lossless 1:1 Blit Fragment Shader (for FBO-to-FBO texture copies in undo/redo/resize)
     const fsBlitSource = `#version 300 es
       precision highp float;
       in vec2 v_uv;
@@ -144,6 +146,56 @@ class HDREngine {
       out vec4 fragColor;
       void main() {
         fragColor = texture(u_texture, v_uv);
+      }
+    `;
+
+    // 1b. Screen Display Presentation Fragment Shader with Adaptive Photographic HDR Roll-off
+    const fsDisplaySource = `#version 300 es
+      precision highp float;
+      in vec2 v_uv;
+      uniform sampler2D u_texture;
+      uniform float u_displayPeak;
+      uniform int u_isHDR;
+      out vec4 fragColor;
+
+      void main() {
+        vec4 texCol = texture(u_texture, v_uv);
+        vec3 c = texCol.rgb;
+        float peak = max(c.r, max(c.g, c.b));
+
+        if (u_isHDR == 1) {
+          // Display on High Dynamic Range Monitor:
+          // 100% uncompressed linear for standard SDR range (up to 1.0 = reference SDR white)
+          if (peak <= 1.0) {
+            fragColor = texCol;
+            return;
+          }
+
+          // Smooth C1 photographic shoulder compressing [1.0, 10.0] into [1.0, u_displayPeak]
+          // Strictly monotonic curve prevents hardware clipping on HDR monitors (DisplayHDR 400/600/OLED):
+          // Guarantees 1.0x SDR, 2.2x Glow, 3.5x Solar, and 5.0x Peak are ALWAYS distinctly separated on screen!
+          float start = 1.0;
+          float headroom = max(0.2, u_displayPeak - start);
+          float D = 2.2;
+          float s = start + headroom * (1.0 - exp(-(peak - start) / D));
+          float k = s / peak;
+
+          // Proportional channel scaling guarantees 100% hue and chromaticity retention on screen
+          // Prevents subordinate channels from hitting the clipping wall, keeping Cyan, Magenta, Lime, Gold vivid!
+          fragColor = vec4(c * k, texCol.a);
+        } else {
+          // Display on Standard Dynamic Range Monitor (SDR):
+          if (peak <= 0.65) {
+            fragColor = texCol;
+            return;
+          }
+          float start = 0.65;
+          float headroom = 0.35;
+          float D = 1.8;
+          float s = start + headroom * 0.985 * (1.0 - exp(-(peak - start) / D));
+          float k = s / peak;
+          fragColor = vec4(c * k, texCol.a);
+        }
       }
     `;
 
@@ -325,6 +377,7 @@ class HDREngine {
     `;
 
     this.progBlit = this.createProgram(vsSource, fsBlitSource);
+    this.progDisplay = this.createProgram(vsSource, fsDisplaySource);
     this.progBrush = this.createProgram(vsSource, fsBrushSource);
     this.progSun = this.createProgram(vsSource, fsSunSource);
     this.progMoon = this.createProgram(vsSource, fsMoonSource);
@@ -708,13 +761,16 @@ class HDREngine {
     const gl = this.gl;
     if (!gl || !this.fboTexture) return;
 
-    // Render directly to default swapchain buffer
+    // Render directly to default swapchain buffer with adaptive photographic HDR display roll-off
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.canvasWidth, this.canvasHeight);
 
-    gl.useProgram(this.progBlit);
+    gl.useProgram(this.progDisplay);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.fboTexture);
+    gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_texture'), 0);
+    gl.uniform1f(gl.getUniformLocation(this.progDisplay, 'u_displayPeak'), this.displayHeadroom || 2.8);
+    gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_isHDR'), this.hdrInfo.highDynamicRange ? 1 : 0);
     gl.bindVertexArray(this.quadVao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
