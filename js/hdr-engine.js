@@ -853,6 +853,27 @@ class HDREngine {
     const sdrData = new Uint8ClampedArray(width * height * 4);
     const gainData = new Uint8ClampedArray(width * height * 4);
 
+    // 1. Detect scene peak dynamic range to calibrate adaptive highlight shoulder
+    let maxHdr = 1.0;
+    for (let i = 0; i < hdrPixels.length; i += 4) {
+      if (hdrPixels[i] > maxHdr) maxHdr = hdrPixels[i];
+      if (hdrPixels[i + 1] > maxHdr) maxHdr = hdrPixels[i + 1];
+      if (hdrPixels[i + 2] > maxHdr) maxHdr = hdrPixels[i + 2];
+    }
+
+    // Adaptive photographic highlight shoulder:
+    // Preserves 100% linear color fidelity in shadows and mid-tones, while allowing extreme HDR
+    // highlights to smoothly transition into glowing, incandescent core radiance (avoiding flat muddy orange or harsh clamp)
+    const t = Math.min(1.0, Math.max(0.0, (maxHdr - 1.0) / 4.0));
+    const shoulderStart = 1.0 - 0.20 * t; // 1.0 (pure SDR) down to 0.80 (at 5.0x peak HDR)
+    const shoulderHeadroom = 1.0 - shoulderStart;
+    const shoulderMult = 2.0 + 0.5 * t;
+
+    function toneShoulder(c) {
+      if (c <= shoulderStart) return c;
+      return shoulderStart + shoulderHeadroom * 0.995 * (1.0 - Math.exp(-(c - shoulderStart) / (shoulderHeadroom * shoulderMult)));
+    }
+
     let maxLogGain = 0.0;
     const logGains = new Float32Array(width * height);
 
@@ -870,31 +891,25 @@ class HDREngine {
         const gHdr = Math.max(0, hdrPixels[srcIdx + 1]);
         const bHdr = Math.max(0, hdrPixels[srcIdx + 2]);
 
-        // Find peak RGB channel to preserve exact chromaticity and hue ratio (R:G:B)
-        const peak = Math.max(rHdr, Math.max(gHdr, bHdr));
-        let k = 1.0;
-        let s = peak;
-
-        if (peak > 0.75) {
-          // Smooth photographic shoulder compressing [0.75, 10.0] into [0.75, 0.99]
-          // Preserves all internal gradients, brush stroke texture, and 3D volume without hard-clipping
-          s = 0.75 + 0.245 * (1.0 - Math.exp(-(peak - 0.75) / 1.5));
-          k = s / peak;
-        }
-
-        // Scale all channels by the identical scalar k to prevent color skew (e.g. orange turning into yellow)
-        const rSdr = Math.min(1.0, rHdr * k);
-        const gSdr = Math.min(1.0, gHdr * k);
-        const bSdr = Math.min(1.0, bHdr * k);
+        // Smooth per-channel photographic shoulder:
+        // Maintains rich saturated color in the stroke halos and edges, while smoothly
+        // rolling off the intense core into radiant, luminous highlight tones matching the screen.
+        const rSdr = Math.min(1.0, toneShoulder(rHdr));
+        const gSdr = Math.min(1.0, toneShoulder(gHdr));
+        const bSdr = Math.min(1.0, toneShoulder(bHdr));
 
         sdrData[dstIdx] = Math.round(rSdr * 255);
         sdrData[dstIdx + 1] = Math.round(gSdr * 255);
         sdrData[dstIdx + 2] = Math.round(bSdr * 255);
         sdrData[dstIdx + 3] = 255;
 
-        // Exact gain required to restore original floating point HDR radiance from the tone-mapped base
-        const ratio = (peak + 0.015625) / (s + 0.015625);
-        const logG = Math.max(0.0, Math.log2(ratio));
+        // Channel boost ratio using ISO 21496-1 / Ultra HDR offset (1/64 = 0.015625)
+        const off = 0.015625;
+        const rRatio = (rHdr + off) / (rSdr + off);
+        const gRatio = (gHdr + off) / (gSdr + off);
+        const bRatio = (bHdr + off) / (bSdr + off);
+        const maxRatio = Math.max(rRatio, Math.max(gRatio, bRatio));
+        const logG = Math.max(0.0, Math.log2(maxRatio));
         logGains[pIdx] = logG;
 
         if (logG > maxLogGain) {
