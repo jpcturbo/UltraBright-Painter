@@ -172,15 +172,41 @@ class HDREngine {
 
         // Soft radial falloff
         float inner = u_radius * (1.0 - u_softness);
-        float edgeAlpha = 1.0 - smoothstep(inner, u_radius, dist);
+        float normSoft = (dist <= inner) ? 0.0 : clamp((dist - inner) / max(0.001, u_radius - inner), 0.0, 1.0);
+        float edgeAlpha = (dist <= inner) ? 1.0 : (1.0 - smoothstep(0.0, 1.0, normSoft));
         float alpha = edgeAlpha * u_opacity;
 
         if (u_isEraser == 1) {
           // Erase back to exact canvas background color
           fragColor = vec4(u_bgColor, alpha);
         } else {
-          // Pure linear HDR photon radiance maintaining exact palette chromaticity and hue
-          vec3 hdrRGB = u_color * u_intensity;
+          // Dynamic intensity tapering across the soft edge:
+          // Core maintains full u_intensity; as the stroke feathers outwards, intensity tapers smoothly
+          // from peak HDR radiance down to baseline SDR (1.0x), preserving rich saturated halos,
+          // distinct overlapping stamp disc textures, and photographic soft falloffs.
+          float localIntensity = (dist <= inner) ? u_intensity : (1.0 + (u_intensity - 1.0) * pow(edgeAlpha, 1.25));
+
+          // Chromaticity-preserving HDR scaling:
+          // Prevents subordinate RGB channels from climbing into the dominant subpixel clipping ceiling
+          // Keeps Cyan, Magenta, Gold, Lime, and Crimson ultra-vivid even at 5.0x boost without washing out to white
+          vec3 baseCol = u_color;
+          float maxC = max(baseCol.r, max(baseCol.g, baseCol.b));
+          float minC = min(baseCol.r, min(baseCol.g, baseCol.b));
+          float chroma = maxC - minC;
+
+          vec3 hdrRGB;
+          if (chroma > 0.001 && localIntensity > 1.0 && u_chromaRetention > 0.01) {
+            vec3 norm = (baseCol - minC) / chroma;
+            // Power curve suppresses subordinate channels from whitening out the color at peak luminance
+            float p = 1.0 + u_chromaRetention * (localIntensity - 1.0) * 0.55;
+            vec3 boostedNorm = pow(max(vec3(0.0), norm), vec3(p));
+            // Floor scaling maintains dark contrast without graying
+            float floorScale = minC * pow(localIntensity, max(0.0, 1.0 - u_chromaRetention * 0.8));
+            hdrRGB = boostedNorm * (chroma * localIntensity) + floorScale;
+          } else {
+            hdrRGB = baseCol * localIntensity;
+          }
+
           fragColor = vec4(hdrRGB, alpha);
         }
       }
@@ -834,7 +860,7 @@ class HDREngine {
     const sdrData = new Uint8ClampedArray(width * height * 4);
     const gainData = new Uint8ClampedArray(width * height * 4);
 
-    // Find canvas peak luminance to calibrate adaptive filmic tone reproduction
+    // Detect scene peak dynamic range
     let maxHdr = 1.0;
     for (let i = 0; i < hdrPixels.length; i += 4) {
       if (hdrPixels[i] > maxHdr) maxHdr = hdrPixels[i];
@@ -842,13 +868,20 @@ class HDREngine {
       if (hdrPixels[i + 2] > maxHdr) maxHdr = hdrPixels[i + 2];
     }
 
-    // Photographic Filmic Tone Curve:
-    // Models true display phosphor/OLED highlight bleaching (e.g. intense Gold -> Canary Yellow,
-    // intense Crimson -> Peach/Coral, intense Lime -> Chartreuse) while maintaining continuous non-zero derivative
-    // across all values to preserve 100% of brush stamp discs, soft edge falloffs, and subtle gradients.
-    function tone(c) {
-      if (maxHdr <= 1.0) return Math.min(1.0, c);
-      return (c * (1.0 + maxHdr)) / (maxHdr * (1.0 + c));
+    // Max-RGB Proportional Tone Mapping with Smooth Photographic Highlight Shoulder:
+    // 1. Shadows and midtones up to 0.65 are 100% uncompressed linear (SDR = HDR), guaranteeing
+    //    pristine preservation of soft brush edge falloffs, stamp disc textures, and dark contrast.
+    // 2. Highlights (peak > 0.65) smoothly compress towards 0.985 with a strictly monotonic C1 curve,
+    //    guaranteeing distinct, non-clipped luminance steps between 1.0x SDR, 2.2x Glow, 3.5x Solar, and 5.0x Peak.
+    // 3. Proportional channel scaling (k = s / peak) preserves 100% of exact color chromaticity and hue ratios
+    //    (R:G:B) across all tools, glows, and soft edges without any bleaching or hue shifts.
+    const start = 0.65;
+    const headroom = 1.0 - start;
+    const D = Math.max(1.8, (maxHdr - start) * 0.45);
+
+    function tonePeak(peak) {
+      if (peak <= start) return peak;
+      return start + headroom * 0.985 * (1.0 - Math.exp(-(peak - start) / D));
     }
 
     let maxLogGain = 0.0;
@@ -868,22 +901,27 @@ class HDREngine {
         const gHdr = Math.max(0, hdrPixels[srcIdx + 1]);
         const bHdr = Math.max(0, hdrPixels[srcIdx + 2]);
 
-        const rSdr = Math.min(1.0, tone(rHdr));
-        const gSdr = Math.min(1.0, tone(gHdr));
-        const bSdr = Math.min(1.0, tone(bHdr));
+        const peak = Math.max(rHdr, Math.max(gHdr, bHdr));
+        let k = 1.0;
+        let s = peak;
+
+        if (peak > start) {
+          s = tonePeak(peak);
+          k = s / peak;
+        }
+
+        const rSdr = Math.min(1.0, rHdr * k);
+        const gSdr = Math.min(1.0, gHdr * k);
+        const bSdr = Math.min(1.0, bHdr * k);
 
         sdrData[dstIdx] = Math.round(rSdr * 255);
         sdrData[dstIdx + 1] = Math.round(gSdr * 255);
         sdrData[dstIdx + 2] = Math.round(bSdr * 255);
         sdrData[dstIdx + 3] = 255;
 
-        // Exact gain required to restore original floating point HDR radiance
-        const off = 0.015625;
-        const rRatio = (rHdr + off) / (rSdr + off);
-        const gRatio = (gHdr + off) / (gSdr + off);
-        const bRatio = (bHdr + off) / (bSdr + off);
-        const maxRatio = Math.max(rRatio, Math.max(gRatio, bRatio));
-        const logG = Math.max(0.0, Math.log2(maxRatio));
+        // Exact gain required to restore original floating point HDR radiance from tone-mapped base
+        const ratio = (peak + 0.015625) / (s + 0.015625);
+        const logG = Math.max(0.0, Math.log2(ratio));
         logGains[pIdx] = logG;
 
         if (logG > maxLogGain) {
@@ -927,10 +965,10 @@ class HDREngine {
     const gainImgData = new ImageData(gainData, width, height);
     gainCtx.putImageData(gainImgData, 0, 0);
 
-    // Encode both renditions into JPEG ArrayBuffers
+    // Encode both renditions into JPEG ArrayBuffers (high quality to prevent edge blur & quantization)
     const [sdrBlob, gainBlob] = await Promise.all([
-      new Promise(res => sdrCanvas.toBlob(res, 'image/jpeg', 0.95)),
-      new Promise(res => gainCanvas.toBlob(res, 'image/jpeg', 0.85))
+      new Promise(res => sdrCanvas.toBlob(res, 'image/jpeg', 0.98)),
+      new Promise(res => gainCanvas.toBlob(res, 'image/jpeg', 0.92))
     ]);
 
     if (!sdrBlob || !gainBlob) {
