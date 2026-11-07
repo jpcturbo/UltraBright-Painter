@@ -1,9 +1,9 @@
-# HDR Web Paint 🎨✨
-### High Dynamic Range Web Painting Application
+# UltraBright Painter 🎨✨
+### High Dynamic Range (HDR) & Ultra HDR Web Painting Application
 
-A fun, responsive web painting application built to explore **High Dynamic Range (HDR)** and wide color gamut directly inside modern browsers.
+A responsive, high-dynamic-range web painting application built to explore **High Dynamic Range (HDR)**, wide color gamut (Display-P3), and **Ultra HDR Gain Map image export** directly in the browser.
 
-Designed specifically for HDR-capable displays and modern high-brightness mobile OLED/HDR screens (iPhone Super Retina XDR, Samsung Galaxy AMOLED, Google Pixel, and high-brightness HDR monitors).
+Designed specifically for HDR-capable displays and modern high-brightness mobile OLED/HDR screens (Samsung Galaxy AMOLED, iPhone Super Retina XDR, Google Pixel, and HDR monitors / TVs).
 
 ---
 
@@ -64,10 +64,11 @@ Because **HDR Web Paint** is built with zero build dependencies and standard sta
 - Double-click **`start.bat`**. It starts a lightweight local server and displays the local Wi-Fi URL (e.g. `http://192.168.1.X:8080`) so other phones and devices on your Wi-Fi can test it.
 
 ### Option 3: GitHub Pages (Host for the world)
-1. Push this repository to GitHub.
+1. Push this repository to GitHub: `https://github.com/jpcturbo/UltraBright-Painter.git`.
 2. In GitHub, go to **Settings** > **Pages**.
-3. Under **Build and deployment**, select **Source: Deploy from a branch** and pick `main` / `/ (root)`.
-4. Your HDR painting app is instantly live on the web at `https://<username>.github.io/HDR-Web-Paint/`!
+3. Under **Build and deployment**, select **Source: Deploy from a branch** and choose `main` / `/ (root)`.
+4. Your HDR painting app is instantly live on the web at:
+   👉 **https://jpcturbo.github.io/UltraBright-Painter/**
 
 ---
 
@@ -91,8 +92,9 @@ To get the most dazzling HDR experience:
 ## 📁 Repository Structure
 
 ```text
-HDR-Web-Paint/
+UltraBright-Painter/
 ├── index.html            # Main HTML document & responsive layout
+├── .nojekyll             # Bypasses Jekyll processing on GitHub Pages
 ├── css/
 │   └── style.css         # Dark theme, responsive rules & HDR styles
 ├── js/
