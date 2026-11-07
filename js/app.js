@@ -63,6 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bgButtons = document.querySelectorAll('.bg-opt-btn');
 
+  // Confirmation Modal Elements
+  const confirmModal = document.getElementById('confirmModal');
+  const confirmIcon = document.getElementById('confirmIcon');
+  const confirmIconWrapper = document.getElementById('confirmIconWrapper');
+  const confirmTitle = document.getElementById('confirmTitle');
+  const confirmMessage = document.getElementById('confirmMessage');
+  const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+  const confirmOkBtn = document.getElementById('confirmOkBtn');
+  let pendingConfirmAction = null;
+
   // =========================================================================
   // 1. Initialize UI with HDR Engine
   // =========================================================================
@@ -419,32 +429,65 @@ document.addEventListener('DOMContentLoaded', () => {
   function bindActions() {
     btnUndo.addEventListener('click', () => hdrEngine.undo());
     btnRedo.addEventListener('click', () => hdrEngine.redo());
+
+    // Trash Button: Clear Entire Canvas
     btnClear.addEventListener('click', () => {
-      if (confirm('Clear the entire canvas?')) {
-        hdrEngine.clearCanvas();
-      }
+      showConfirmModal({
+        title: 'Clear Canvas?',
+        message: 'This will permanently erase your drawing from the canvas.',
+        icon: '🗑️',
+        confirmText: 'Clear Canvas',
+        isDanger: true,
+        onConfirm: () => {
+          hdrEngine.clearCanvas();
+        }
+      });
     });
+
     btnExport.addEventListener('click', () => {
       hdrEngine.exportImage(`HDR-Paint-${Date.now()}.png`);
     });
 
     // Canvas Background Color Options
+    let currentBgMode = 'space';
+
     bgButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        bgButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        const targetMode = btn.dataset.bg;
+        if (targetMode === currentBgMode) return; // Already on this background
 
-        const mode = btn.dataset.bg;
-        if (mode === 'space') {
-          hdrEngine.setBackgroundColor(0.03, 0.03, 0.04);
-        } else if (mode === 'charcoal') {
-          hdrEngine.setBackgroundColor(0.10, 0.11, 0.14);
-        } else if (mode === 'navy') {
-          hdrEngine.setBackgroundColor(0.03, 0.07, 0.15);
-        } else if (mode === 'nebula') {
-          hdrEngine.setBackgroundColor(0.09, 0.04, 0.14);
-        } else if (mode === 'white') {
-          hdrEngine.setBackgroundColor(1.0, 1.0, 1.0);
+        const applyBackground = () => {
+          bgButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentBgMode = targetMode;
+
+          if (targetMode === 'space') {
+            hdrEngine.setBackgroundColor(0.03, 0.03, 0.04);
+          } else if (targetMode === 'charcoal') {
+            hdrEngine.setBackgroundColor(0.10, 0.11, 0.14);
+          } else if (targetMode === 'navy') {
+            hdrEngine.setBackgroundColor(0.03, 0.07, 0.15);
+          } else if (targetMode === 'nebula') {
+            hdrEngine.setBackgroundColor(0.09, 0.04, 0.14);
+          } else if (targetMode === 'white') {
+            hdrEngine.setBackgroundColor(1.0, 1.0, 1.0);
+          }
+        };
+
+        // If the user has drawn something on the canvas (undo stack > 1):
+        // Prompt them with the sleek custom confirmation modal!
+        if (hdrEngine.undoStack && hdrEngine.undoStack.length > 1) {
+          showConfirmModal({
+            title: 'Change Canvas Space?',
+            message: 'Changing the canvas background color will clear your current artwork.',
+            icon: '🎨',
+            confirmText: 'Change & Clear',
+            isDanger: true,
+            onConfirm: applyBackground
+          });
+        } else {
+          // If the canvas is blank, change immediately without interruption
+          applyBackground();
         }
       });
     });
@@ -483,9 +526,33 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // =========================================================================
-  // 9. Diagnostics Modal
+  // 9. Diagnostics & Confirmation Modals
   // =========================================================================
+  function showConfirmModal({ title, message, icon = '⚠️', confirmText = 'Confirm', isDanger = true, onConfirm }) {
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    confirmIcon.textContent = icon;
+    confirmOkBtn.textContent = confirmText;
+
+    if (isDanger) {
+      confirmOkBtn.className = 'confirm-btn danger';
+      confirmIconWrapper.className = 'confirm-icon-wrapper';
+    } else {
+      confirmOkBtn.className = 'confirm-btn primary';
+      confirmIconWrapper.className = 'confirm-icon-wrapper warning';
+    }
+
+    pendingConfirmAction = onConfirm;
+    confirmModal.classList.remove('hidden');
+  }
+
+  function closeConfirmModal() {
+    confirmModal.classList.add('hidden');
+    pendingConfirmAction = null;
+  }
+
   function bindModal() {
+    // HDR Diagnostics Modal
     hdrBadgeBtn.addEventListener('click', () => {
       updateHDRStatusBadge();
       hdrModal.classList.remove('hidden');
@@ -499,6 +566,24 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === hdrModal) {
         hdrModal.classList.add('hidden');
       }
+    });
+
+    // Custom Confirmation Modal
+    confirmCancelBtn.addEventListener('click', closeConfirmModal);
+
+    confirmModal.addEventListener('click', (e) => {
+      if (e.target === confirmModal) {
+        closeConfirmModal();
+      }
+    });
+
+    confirmOkBtn.addEventListener('click', () => {
+      if (typeof pendingConfirmAction === 'function') {
+        const action = pendingConfirmAction;
+        pendingConfirmAction = null;
+        action();
+      }
+      closeConfirmModal();
     });
   }
 

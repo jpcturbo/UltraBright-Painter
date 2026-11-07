@@ -829,3 +829,98 @@ html, body {
   border-radius: 4px;
   font-family: monospace;
 }
+
+/* ==========================================================================
+   Custom Confirmation Dialog
+   ========================================================================== */
+.confirm-card {
+  max-width: 380px;
+  text-align: center;
+  padding: 28px 24px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.confirm-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 59, 48, 0.12);
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 14px;
+  box-shadow: 0 0 20px rgba(255, 59, 48, 0.2);
+}
+
+.confirm-icon-wrapper.warning {
+  background: rgba(255, 174, 25, 0.12);
+  border-color: rgba(255, 174, 25, 0.3);
+  box-shadow: 0 0 20px rgba(255, 174, 25, 0.2);
+}
+
+.confirm-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.confirm-message {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.confirm-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.confirm-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+}
+
+.confirm-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.confirm-btn.danger {
+  background: linear-gradient(135deg, #ff3b30, #e0241b);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(255, 59, 48, 0.4);
+}
+
+.confirm-btn.danger:hover {
+  box-shadow: 0 4px 18px rgba(255, 59, 48, 0.6);
+  transform: translateY(-1px);
+}
+
+.confirm-btn.primary {
+  background: linear-gradient(135deg, #0077ff, #00c3ff);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(0, 136, 255, 0.4);
+}
+
+.confirm-btn.primary:hover {
+  box-shadow: 0 4px 18px rgba(0, 136, 255, 0.6);
+  transform: translateY(-1px);
+}
