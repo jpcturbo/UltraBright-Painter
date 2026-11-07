@@ -108,22 +108,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // =========================================================================
   function updateHDRStatusBadge() {
     const info = hdrEngine.hdrInfo;
+    const btnToggleForceHDR = document.getElementById('btnToggleForceHDR');
     if (info.highDynamicRange) {
       hdrBadgeBtn.classList.remove('sdr-mode');
       hdrStatusText.textContent = 'HDR Active';
-      diagHdrStatus.textContent = 'Detected & Active (Windows 11 HDR ON)';
+      diagHdrStatus.textContent = hdrEngine.manualHdrOverride ? 'Active (Manual Force HDR ON)' : 'Detected & Active (Windows 11 HDR ON)';
       diagHdrStatus.className = 'diag-val highlight';
+      if (btnToggleForceHDR) btnToggleForceHDR.textContent = '🔄 Switch to Auto HDR Detection';
     } else {
       hdrBadgeBtn.classList.add('sdr-mode');
       hdrStatusText.textContent = info.displayP3 ? 'Wide Gamut Active' : 'SDR Mode';
       diagHdrStatus.textContent = 'Standard Dynamic Range';
       diagHdrStatus.className = 'diag-val';
+      if (btnToggleForceHDR) btnToggleForceHDR.textContent = '⚡ Force Enable HDR Mode';
     }
 
     diagP3Status.textContent = info.displayP3 ? 'Supported (Wide Color Gamut)' : 'sRGB Standard Fallback';
     diagFormatStatus.textContent = info.float16Buffer ? 'RGBA16F Half-Float (Extended Range)' : 'Standard 8-bit Clamped';
     diagPeakStatus.textContent = info.highDynamicRange ? '~600+ nits (HDR Display Peak)' : '~120-150 nits (SDR Target)';
   }
+
+  // Live display change callback from HDR Engine
+  window.onHDRCapabilityChange = () => {
+    updateHDRStatusBadge();
+  };
 
   // =========================================================================
   // 3. Preset Swatches
@@ -563,6 +571,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function bindModal() {
     // HDR Diagnostics Modal
+    const btnToggleForceHDR = document.getElementById('btnToggleForceHDR');
+    if (btnToggleForceHDR) {
+      btnToggleForceHDR.addEventListener('click', () => {
+        const currentHDR = hdrEngine.hdrInfo.highDynamicRange;
+        hdrEngine.setManualHDR(!currentHDR);
+        updateHDRStatusBadge();
+      });
+    }
+
     hdrBadgeBtn.addEventListener('click', () => {
       updateHDRStatusBadge();
       hdrModal.classList.remove('hidden');

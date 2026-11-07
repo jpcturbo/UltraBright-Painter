@@ -830,6 +830,26 @@ html, body {
   font-family: monospace;
 }
 
+.diag-toggle-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(255, 174, 25, 0.2), rgba(0, 230, 118, 0.2));
+  border: 1px solid rgba(0, 230, 118, 0.4);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 14px;
+}
+
+.diag-toggle-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 174, 25, 0.35), rgba(0, 230, 118, 0.35));
+  border-color: rgba(0, 230, 118, 0.8);
+  box-shadow: 0 0 16px rgba(0, 230, 118, 0.3);
+}
+
 /* ==========================================================================
    Custom Confirmation Dialog
    ========================================================================== */

@@ -56,12 +56,34 @@ class HDREngine {
   }
 
   detectHDRCapabilities() {
+    // Check URL parameters for forced HDR mode (e.g. ?hdr=1)
+    const urlParams = typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search) : null;
+    const forceHdrParam = urlParams ? (urlParams.get('hdr') === '1' || urlParams.get('hdr') === 'true' || urlParams.get('forcehdr') === '1') : false;
+
     // 1. Check screen dynamic-range media queries
     const hdrQuery = window.matchMedia('(dynamic-range: high)');
     const p3Query = window.matchMedia('(color-gamut: p3)');
-    this.hdrInfo.highDynamicRange = hdrQuery.matches;
-    this.hdrInfo.displayP3 = p3Query.matches;
+    this.hdrInfo.highDynamicRange = forceHdrParam || hdrQuery.matches;
+    this.hdrInfo.displayP3 = forceHdrParam || p3Query.matches;
     this.displayHeadroom = this.hdrInfo.highDynamicRange ? 2.8 : 1.0;
+
+    // Listen for live display changes (e.g. Win+Alt+B HDR toggling or dragging between monitors)
+    const onDisplayChange = () => {
+      if (!this.manualHdrOverride && !forceHdrParam) {
+        this.hdrInfo.highDynamicRange = hdrQuery.matches;
+        this.hdrInfo.displayP3 = p3Query.matches;
+        this.displayHeadroom = this.hdrInfo.highDynamicRange ? 2.8 : 1.0;
+        this.setupDrawingBufferStorage();
+        this.renderToScreen();
+        if (typeof window.onHDRCapabilityChange === 'function') {
+          window.onHDRCapabilityChange(this.hdrInfo);
+        }
+      }
+    };
+    if (typeof hdrQuery.addEventListener === 'function') {
+      hdrQuery.addEventListener('change', onDisplayChange);
+      p3Query.addEventListener('change', onDisplayChange);
+    }
 
     // 2. Configure canvas HDR if supported by browser (Chrome 122+)
     if (typeof this.canvas.configureHighDynamicRange === 'function') {
@@ -71,6 +93,18 @@ class HDREngine {
       } catch (err) {
         console.warn('configureHighDynamicRange error:', err);
       }
+    }
+  }
+
+  setManualHDR(enabled) {
+    this.manualHdrOverride = true;
+    this.hdrInfo.highDynamicRange = !!enabled;
+    this.hdrInfo.displayP3 = !!enabled;
+    this.displayHeadroom = enabled ? 2.8 : 1.0;
+    this.setupDrawingBufferStorage();
+    this.renderToScreen();
+    if (typeof window.onHDRCapabilityChange === 'function') {
+      window.onHDRCapabilityChange(this.hdrInfo);
     }
   }
 
@@ -117,6 +151,15 @@ class HDREngine {
         }
       } catch (e) {
         console.warn('drawingBufferStorage configuration skipped:', e);
+      }
+    }
+
+    // Modern Chromium WebGL extended dynamic range tone mapping
+    if ('drawingBufferToneMapping' in gl) {
+      try {
+        gl.drawingBufferToneMapping = { mode: 'extended' };
+      } catch (e) {
+        console.warn('drawingBufferToneMapping configuration skipped:', e);
       }
     }
 
