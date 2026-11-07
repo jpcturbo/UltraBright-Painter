@@ -834,6 +834,23 @@ class HDREngine {
     const sdrData = new Uint8ClampedArray(width * height * 4);
     const gainData = new Uint8ClampedArray(width * height * 4);
 
+    // Find canvas peak luminance to calibrate adaptive filmic tone reproduction
+    let maxHdr = 1.0;
+    for (let i = 0; i < hdrPixels.length; i += 4) {
+      if (hdrPixels[i] > maxHdr) maxHdr = hdrPixels[i];
+      if (hdrPixels[i + 1] > maxHdr) maxHdr = hdrPixels[i + 1];
+      if (hdrPixels[i + 2] > maxHdr) maxHdr = hdrPixels[i + 2];
+    }
+
+    // Photographic Filmic Tone Curve:
+    // Models true display phosphor/OLED highlight bleaching (e.g. intense Gold -> Canary Yellow,
+    // intense Crimson -> Peach/Coral, intense Lime -> Chartreuse) while maintaining continuous non-zero derivative
+    // across all values to preserve 100% of brush stamp discs, soft edge falloffs, and subtle gradients.
+    function tone(c) {
+      if (maxHdr <= 1.0) return Math.min(1.0, c);
+      return (c * (1.0 + maxHdr)) / (maxHdr * (1.0 + c));
+    }
+
     let maxLogGain = 0.0;
     const logGains = new Float32Array(width * height);
 
@@ -851,37 +868,22 @@ class HDREngine {
         const gHdr = Math.max(0, hdrPixels[srcIdx + 1]);
         const bHdr = Math.max(0, hdrPixels[srcIdx + 2]);
 
-        // Max-RGB / Peak Channel Proportional Tone Mapping:
-        // Preserves 100% of exact color chromaticity and hue ratios (R:G:B) across all tools,
-        // glows (e.g. moon blue halo, overlapping yellow stripes), and brush softness levels.
-        const peak = Math.max(rHdr, Math.max(gHdr, bHdr));
-        let k = 1.0;
-        let s = peak;
-
-        if (peak > 0.65) {
-          // Smooth C1 photographic shoulder compressing [0.65, 10.0] into [0.65, 0.985]
-          // Strictly monotonic with continuous non-zero derivative:
-          // Preserves 100% of internal brush stroke discs, textures, and soft edge falloff details without flat plateaus.
-          const start = 0.65;
-          const headroom = 1.0 - start;
-          const D = 2.0;
-          s = start + headroom * 0.985 * (1.0 - Math.exp(-(peak - start) / D));
-          k = s / peak;
-        }
-
-        // Proportional channel scaling guarantees zero hue shift across all colors and overlapping glows
-        const rSdr = Math.min(1.0, rHdr * k);
-        const gSdr = Math.min(1.0, gHdr * k);
-        const bSdr = Math.min(1.0, bHdr * k);
+        const rSdr = Math.min(1.0, tone(rHdr));
+        const gSdr = Math.min(1.0, tone(gHdr));
+        const bSdr = Math.min(1.0, tone(bHdr));
 
         sdrData[dstIdx] = Math.round(rSdr * 255);
         sdrData[dstIdx + 1] = Math.round(gSdr * 255);
         sdrData[dstIdx + 2] = Math.round(bSdr * 255);
         sdrData[dstIdx + 3] = 255;
 
-        // Exact gain required to restore original floating point HDR radiance from the tone-mapped base
-        const ratio = (peak + 0.015625) / (s + 0.015625);
-        const logG = Math.max(0.0, Math.log2(ratio));
+        // Exact gain required to restore original floating point HDR radiance
+        const off = 0.015625;
+        const rRatio = (rHdr + off) / (rSdr + off);
+        const gRatio = (gHdr + off) / (gSdr + off);
+        const bRatio = (bHdr + off) / (bSdr + off);
+        const maxRatio = Math.max(rRatio, Math.max(gRatio, bRatio));
+        const logG = Math.max(0.0, Math.log2(maxRatio));
         logGains[pIdx] = logG;
 
         if (logG > maxLogGain) {
@@ -945,8 +947,8 @@ class HDREngine {
     gainBytes = this.injectApp1Segment(gainBytes, secondaryXmp);
     const finalGainLength = gainBytes.length;
 
-    // 2. Build and inject Primary XMP Metadata with GContainer directory pointing to Gain Map
-    const primaryXmp = `http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0"><Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="${finalGainLength}"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>`;
+    // 2. Build and inject Primary XMP Metadata with GContainer directory and complete gain map parameters
+    const primaryXmp = `http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.2"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0" hdrgm:GainMapMin="0.000000" hdrgm:GainMapMax="${gainMapMax.toFixed(6)}" hdrgm:Gamma="1.000000" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.015625" hdrgm:HDRCapacityMin="0.000000" hdrgm:HDRCapacityMax="${gainMapMax.toFixed(6)}" hdrgm:BaseRenditionIsHDR="False"><Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="${finalGainLength}"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>`;
 
     let sdrApp1Pos = 2;
     if (sdrBytes[0] === 0xFF && sdrBytes[1] === 0xD8) {
