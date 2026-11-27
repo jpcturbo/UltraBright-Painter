@@ -249,7 +249,11 @@
 
           <div class="diag-list">
             <div class="diag-item">
-              <span class="diag-label">High Dynamic Range (OS/Monitor):</span>
+              <span class="diag-label">Graphics Backend:</span>
+              <span id="diagBackendStatus" class="diag-val">Initializing...</span>
+            </div>
+            <div class="diag-item">
+              <span class="diag-label">Live Canvas HDR Headroom:</span>
               <span id="diagHdrStatus" class="diag-val highlight">Detecting...</span>
             </div>
             <div class="diag-item">
@@ -267,8 +271,8 @@
           </div>
 
           <div class="tip-box">
-            <strong>💡 Windows 11 HDR Tip:</strong>
-            Make sure Windows HDR is toggled ON (<code>Win + Alt + B</code>). In Chrome or Edge, HDR rendering is enabled out of the box with GPU hardware acceleration.
+            <strong>💡 Mobile &amp; Desktop HDR Tip:</strong>
+            Live HDR painting uses <strong>WebGPU Extended HDR</strong> on Chrome Android (129+), iOS Safari, and Windows 11/macOS (<code>Win + Alt + B</code>). If your browser falls back to SDR-clamped WebGL2, tap the <strong>Preview</strong> or <strong>Export</strong> button to view full hardware HDR via an <strong>ISO 21496-1 / Ultra HDR</strong> gain-map JPEG.
           </div>
 
           <button id="btnToggleForceHDR" class="diag-toggle-btn">⚡ Force HDR Mode ON</button>

@@ -50,6 +50,7 @@ html, body {
 .app-container {
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -100,6 +101,7 @@ html, body {
   height: 100%;
   display: block;
   cursor: crosshair;
+  dynamic-range-limit: no-limit;
 }
 
 /* Interactive Brush Cursor Ring */
@@ -677,41 +679,191 @@ html, body {
 /* Mobile Phone Portrait View (Screen width <= 768px) */
 @media (max-width: 768px) {
   .app-header {
-    height: 48px;
-    padding: 0 12px;
+    height: 44px;
+    padding: 0 10px;
+  }
+
+  .brand {
+    gap: 6px;
+  }
+
+  .brand-icon {
+    font-size: 16px;
   }
 
   .brand-text h1 {
-    font-size: 14px;
+    font-size: 13px;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .hdr-status-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .icon-btn svg {
+    width: 16px;
+    height: 16px;
   }
 
   .workspace-layout {
     flex-direction: column;
-    height: calc(100vh - 48px);
+    height: calc(100vh - 44px);
+    height: calc(100dvh - 44px);
   }
 
   .canvas-viewport {
     flex: 1;
     width: 100%;
-    min-height: 200px;
+    min-height: 180px;
   }
 
   .control-panel {
     width: 100%;
     flex-shrink: 0;
-    max-height: 46vh;
+    max-height: 46dvh;
     border-left: none;
     border-top: 1px solid var(--bg-panel-border);
-    padding: 10px 14px 20px 14px;
+    padding: 7px 10px calc(10px + env(safe-area-inset-bottom, 0px)) 10px;
+    gap: 7px;
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
   }
 
+  /* Compact horizontal tool pills */
   .tools-bar {
     grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    padding: 4px;
+  }
+
+  .tool-btn {
+    flex-direction: row;
+    gap: 4px;
+    padding: 5px 4px;
+    border-radius: var(--radius-sm);
+  }
+
+  .tool-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .tool-label {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  /* Compact 2-column sliders grid so color palette stays visible above the fold */
+  .parameters-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    padding: 7px 9px;
+  }
+
+  .control-row {
+    gap: 3px;
+  }
+
+  .hdr-boost-container {
+    grid-column: 1 / -1;
+    padding-top: 5px;
+  }
+
+  .pulse-chip {
+    display: none;
+  }
+
+  .label-with-value {
+    font-size: 10.5px;
+  }
+
+  .value-badge {
+    font-size: 9.5px;
+    padding: 1px 5px;
+  }
+
+  .styled-slider {
+    height: 5px;
+  }
+
+  .styled-slider::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+  }
+
+  .hdr-quick-tiers {
+    gap: 4px;
+    margin-top: 3px;
+  }
+
+  .tier-chip {
+    font-size: 9.5px;
+    padding: 3px 2px;
+  }
+
+  /* Compact always-visible color palette */
+  .color-section {
+    gap: 6px;
+  }
+
+  .color-section-header h3 {
+    font-size: 11px;
+  }
+
+  .active-color-preview-wrapper {
+    padding: 2px 7px 2px 4px;
+    gap: 5px;
+  }
+
+  .active-swatch {
+    width: 14px;
+    height: 14px;
+  }
+
+  .active-color-name {
+    font-size: 10px;
+    max-width: 120px;
   }
 
   .swatches-grid {
     grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+
+  .swatch-btn {
+    aspect-ratio: auto;
+    height: 24px;
+    border-radius: 6px;
+  }
+
+  .swatch-btn.is-hdr::after {
+    font-size: 7px;
+    top: 0;
+    right: 1px;
+  }
+
+  .expand-picker-btn {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+
+  .bg-selector-row {
+    padding-top: 2px;
+    font-size: 11px;
+  }
+
+  .bg-opt-btn {
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -981,6 +1133,7 @@ html, body {
   max-height: 55vh;
   object-fit: contain;
   display: block;
+  dynamic-range-limit: no-limit;
 }
 
 .preview-spinner {

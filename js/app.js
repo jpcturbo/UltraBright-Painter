@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const hdrStatusText = document.getElementById('hdrStatusText');
   const hdrModal = document.getElementById('hdrModal');
   const closeModalBtn = document.getElementById('closeModalBtn');
+  const diagBackendStatus = document.getElementById('diagBackendStatus');
   const diagHdrStatus = document.getElementById('diagHdrStatus');
   const diagP3Status = document.getElementById('diagP3Status');
   const diagFormatStatus = document.getElementById('diagFormatStatus');
@@ -109,23 +110,38 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateHDRStatusBadge() {
     const info = hdrEngine.hdrInfo;
     const btnToggleForceHDR = document.getElementById('btnToggleForceHDR');
-    if (info.highDynamicRange) {
+    if (diagBackendStatus) {
+      diagBackendStatus.textContent = info.backend || 'Initializing...';
+      diagBackendStatus.className = info.extendedToneMapping ? 'diag-val highlight' : 'diag-val';
+    }
+
+    if (info.highDynamicRange && info.extendedToneMapping) {
       hdrBadgeBtn.classList.remove('sdr-mode');
       hdrStatusText.textContent = 'HDR Active';
-      diagHdrStatus.textContent = hdrEngine.manualHdrOverride ? 'Active (Manual Force HDR ON)' : 'Detected & Active (Windows 11 HDR ON)';
+      diagHdrStatus.textContent = hdrEngine.manualHdrOverride
+        ? 'Extended HDR Unlocked (Manual ON)'
+        : (info.osHdrDetected ? 'Extended HDR Unlocked (OS HDR Active)' : 'Extended HDR Unlocked');
       diagHdrStatus.className = 'diag-val highlight';
-      if (btnToggleForceHDR) btnToggleForceHDR.textContent = '🔄 Switch to Auto HDR Detection';
+      if (btnToggleForceHDR) btnToggleForceHDR.textContent = '🔄 Switch Live Canvas to SDR';
+    } else if (info.highDynamicRange) {
+      hdrBadgeBtn.classList.add('sdr-mode');
+      hdrStatusText.textContent = 'HDR via Preview';
+      diagHdrStatus.textContent = 'Live Canvas Clamped to SDR (Use Preview/Export)';
+      diagHdrStatus.className = 'diag-val';
+      if (btnToggleForceHDR) btnToggleForceHDR.textContent = '🔄 Switch to SDR Mode';
     } else {
       hdrBadgeBtn.classList.add('sdr-mode');
-      hdrStatusText.textContent = info.displayP3 ? 'Wide Gamut Active' : 'SDR Mode';
+      hdrStatusText.textContent = info.displayP3 ? 'Wide Gamut (SDR)' : 'SDR Mode';
       diagHdrStatus.textContent = 'Standard Dynamic Range';
       diagHdrStatus.className = 'diag-val';
       if (btnToggleForceHDR) btnToggleForceHDR.textContent = '⚡ Force Enable HDR Mode';
     }
 
-    diagP3Status.textContent = info.displayP3 ? 'Supported (Wide Color Gamut)' : 'sRGB Standard Fallback';
+    diagP3Status.textContent = info.displayP3 ? 'Supported (Display-P3)' : 'sRGB Standard Fallback';
     diagFormatStatus.textContent = info.float16Buffer ? 'RGBA16F Half-Float (Extended Range)' : 'Standard 8-bit Clamped';
-    diagPeakStatus.textContent = info.highDynamicRange ? '~600+ nits (HDR Display Peak)' : '~120-150 nits (SDR Target)';
+    diagPeakStatus.textContent = (info.highDynamicRange && info.extendedToneMapping)
+      ? '~600–1600+ nits (Live Hardware HDR)'
+      : (info.highDynamicRange ? 'HDR in Preview/Export (SDR Live Canvas)' : '~120–150 nits (SDR Target)');
   }
 
   // Live display change callback from HDR Engine
@@ -298,8 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateBrushCursorSize() {
     let size = hdrEngine.brushSize * 2;
     if (hdrEngine.activeTool === 'sun') {
-      // Glow fills 5x the diameter of the tool
-      size = hdrEngine.brushSize * 2 * 5.0;
+      // Show the solar disc & immediate corona ring for accurate horizon placement
+      size = hdrEngine.brushSize * 1.7 * 1.32;
     } else if (hdrEngine.activeTool === 'moon') {
       size = hdrEngine.brushSize * 3.6;
     }
