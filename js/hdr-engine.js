@@ -41,7 +41,6 @@ class HDREngine {
     // WebGPU state
     this.gpuDevice = null;
     this.gpuContext = null;
-    this.gpuFormat = 'rgba16float';
     this.gpuSampler = null;
     this.gpuFboTexture = null;
     this.gpuFboView = null;
@@ -83,7 +82,7 @@ class HDREngine {
     this.lastPoint = null;
 
     this.detectHDRCapabilities();
-    this.initPromise = this.initAsync();
+    this.initAsync();
   }
 
   detectHDRCapabilities() {
@@ -97,10 +96,14 @@ class HDREngine {
 
     const hdrQuery = window.matchMedia('(dynamic-range: high)');
     const p3Query = window.matchMedia('(color-gamut: p3)');
-    const isMobileP3 = p3Query.matches && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
 
+    // Trust (dynamic-range: high) for live canvas HDR headroom!
+    // Phones like the Samsung S23 Ultra have P3 OLED screens, but One UI does not expose
+    // Android's Display.getHdrSdrRatio() / Super HDR headroom to Chrome, so anything > 1.0
+    // gets hard-clipped to 1.0. Using SDR tone-mapping when (dynamic-range: high) is false
+    // keeps 1.0x / 2.2x / 3.5x / 5.0x tiers visually distinct instead of clipping all white to 1.0.
     this.hdrInfo.osHdrDetected = hdrQuery.matches;
-    const isHDR = forceHdrParam || (savedHdrPref !== null ? savedHdrPref : (hdrQuery.matches || isMobileP3));
+    const isHDR = forceHdrParam || (savedHdrPref !== null ? savedHdrPref : hdrQuery.matches);
 
     this.hdrInfo.highDynamicRange = isHDR;
     this.hdrInfo.displayP3 = p3Query.matches || isHDR;
@@ -109,8 +112,8 @@ class HDREngine {
     const onDisplayChange = () => {
       if (!this.manualHdrOverride && !forceHdrParam && savedHdrPref === null) {
         this.hdrInfo.osHdrDetected = hdrQuery.matches;
-        this.hdrInfo.highDynamicRange = hdrQuery.matches || isMobileP3;
-        this.hdrInfo.displayP3 = p3Query.matches;
+        this.hdrInfo.highDynamicRange = hdrQuery.matches;
+        this.hdrInfo.displayP3 = p3Query.matches || hdrQuery.matches;
         this.displayHeadroom = this.hdrInfo.highDynamicRange ? 3.0 : 1.0;
         if (this.backend === 'webgpu') {
           this.configureWebGPUContext();
@@ -178,11 +181,10 @@ class HDREngine {
       return;
     }
 
-    // 3. Fallback to 2D Canvas
-    console.warn('WebGPU and WebGL2 not available. Falling back to 2D canvas.');
-    this.init2DFallback();
-    this.backend = '2d';
-    this.ready = true;
+    // 3. No GPU backend available
+    console.warn('WebGPU and WebGL2 not available on this browser.');
+    this.backend = 'unsupported';
+    this.ready = false;
     this.updateHdrModeLabel();
     if (typeof window.onHDRCapabilityChange === 'function') {
       window.onHDRCapabilityChange(this.hdrInfo);
@@ -190,13 +192,22 @@ class HDREngine {
   }
 
   setManualHDR(enabled) {
-    this.manualHdrOverride = true;
-    try {
-      localStorage.setItem('force_hdr_mode', enabled ? 'true' : 'false');
-    } catch (e) {}
-    this.hdrInfo.highDynamicRange = !!enabled;
-    this.hdrInfo.displayP3 = !!enabled;
-    this.displayHeadroom = enabled ? 3.0 : 1.0;
+    const target = !!enabled;
+    // If toggling back to match what the OS naturally reports, clear saved override so auto-detection resumes
+    if (target === this.hdrInfo.osHdrDetected) {
+      this.manualHdrOverride = false;
+      try {
+        localStorage.removeItem('force_hdr_mode');
+      } catch (e) {}
+    } else {
+      this.manualHdrOverride = true;
+      try {
+        localStorage.setItem('force_hdr_mode', target ? 'true' : 'false');
+      } catch (e) {}
+    }
+    this.hdrInfo.highDynamicRange = target;
+    this.hdrInfo.displayP3 = target || window.matchMedia('(color-gamut: p3)').matches;
+    this.displayHeadroom = target ? 3.0 : 1.0;
 
     if (this.backend === 'webgpu') {
       this.configureWebGPUContext();
@@ -262,7 +273,6 @@ class HDREngine {
 
       this.gpuDevice = device;
       this.gpuContext = context;
-      this.gpuFormat = 'rgba16float';
 
       if (!this.configureWebGPUContext()) {
         this.gpuDevice = null;
@@ -293,7 +303,6 @@ class HDREngine {
     for (let i = 0; i < configs.length; i++) {
       try {
         this.gpuContext.configure(configs[i]);
-        this.gpuFormat = 'rgba16float';
         this.hdrInfo.float16Buffer = true;
         this.hdrInfo.extendedToneMapping = (i < 2 && toneMode === 'extended');
         if (configs[i].colorSpace === 'display-p3') {
@@ -1192,6 +1201,7 @@ class HDREngine {
     if (!this.gl) return;
     const gl = this.gl;
     const oldFboTex = this.fboTexture;
+    const oldFbo = this.fbo;
 
     this.setupDrawingBufferStorage();
     const { tex, fbo } = this.createFramebufferTexture(newWidth, newHeight);
@@ -1212,6 +1222,9 @@ class HDREngine {
       gl.clearColor(this.backgroundColor[0], this.backgroundColor[1], this.backgroundColor[2], this.backgroundColor[3]);
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
+
+    if (oldFboTex) gl.deleteTexture(oldFboTex);
+    if (oldFbo) gl.deleteFramebuffer(oldFbo);
 
     this.fboTexture = tex;
     this.fbo = fbo;
@@ -1630,11 +1643,6 @@ class HDREngine {
     gl.uniform1i(gl.getUniformLocation(this.progDisplay, 'u_hasExtended'), this.hdrInfo.extendedToneMapping ? 1 : 0);
     gl.bindVertexArray(this.quadVao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-  }
-
-  init2DFallback() {
-    const ctx = this.canvas.getContext('2d', { colorSpace: 'display-p3' });
-    this.ctx2D = ctx;
   }
 
   // ===========================================================================

@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       hdrBadgeBtn.classList.add('sdr-mode');
       hdrStatusText.textContent = info.displayP3 ? 'Wide Gamut (SDR)' : 'SDR Mode';
-      diagHdrStatus.textContent = 'Standard Dynamic Range';
+      diagHdrStatus.textContent = 'Display Reports SDR (No OS HDR Headroom)';
       diagHdrStatus.className = 'diag-val';
       if (btnToggleForceHDR) btnToggleForceHDR.textContent = '⚡ Force Enable HDR Mode';
     }
